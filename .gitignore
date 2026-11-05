@@ -1,5 +1,16 @@
+# dependencies (root and every workspace)
 node_modules/
+apps/desktop/node_modules/
+apps/web/node_modules/
+packages/*/node_modules/
+
+# build output and caches
 dist/
-src-tauri/target/
-src-tauri/gen/
+.turbo/
 *.log
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# old build cache left at the root after the move (locked while tauri dev ran)
+/src-tauri/target/
+/src-tauri/gen/

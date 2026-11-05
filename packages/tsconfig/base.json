@@ -1,4 +1,6 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Peekin base",
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
@@ -12,9 +14,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
-  },
-  "include": ["src", "vite.config.ts"]
+    "noImplicitOverride": true
+  }
 }

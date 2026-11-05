@@ -1,0 +1,109 @@
+/* Peekin website: Tailwind v4. Brand tokens live in @theme; everything else
+   is utilities in index.html and main.ts. Note colours are per-element CSS
+   variables (--nb paper, --ns stripe) set from main.ts. */
+@import "tailwindcss" source(none);
+/* only these files hold classes (logos.ts is big and has none) */
+@source "../index.html";
+@source "./main.ts";
+
+@font-face {
+  font-family: "Nunito";
+  src: url("/Nunito-Variable.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Excalifont";
+  src: url("/Excalifont-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Nunito", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-hand: "Excalifont", "Segoe Print", "Bradley Hand", cursive;
+  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* brand: one blue, plus neutrals */
+  --color-brand: #2f8fd6;
+  --color-brand-600: #2479bc;
+  --color-brand-700: #1f6aa6;
+  --color-brand-50: #f0f7fd;
+  --color-brand-100: #e0effa;
+  --color-brand-200: #c4e1f6;
+  --color-ink: #111418;
+  --color-mute: #5b6676;
+  --color-faint: #98a2b0;
+  --color-line: #e8ebef;
+  --color-paper: #f7f9fb;
+  --color-note-ink: #2b2a33;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-tab-in: tab-in 0.42s var(--ease-out-expo) both;
+  --animate-tab-hint: tab-hint 1.8s ease-in-out infinite;
+  --animate-ring-hint: ring-hint 1.8s ease-in-out infinite;
+  --animate-pop-in: pop-in 0.34s var(--ease-out-expo);
+  --animate-fade-up: fade-up 0.32s var(--ease-out-expo);
+  --animate-dot: dot 1.6s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes tab-in {
+    from { translate: 110% 0; }
+  }
+  @keyframes tab-hint {
+    0%, 100% { translate: 0 0; }
+    50% { translate: -7px 0; }
+  }
+  @keyframes ring-hint {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(47 143 214 / 0); }
+    50% { box-shadow: 0 0 0 6px rgb(47 143 214 / 0.3); }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateX(24px) scale(0.96); }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  }
+  @keyframes dot {
+    50% { transform: scale(1.25); }
+  }
+  @keyframes float {
+    50% { transform: translateY(-6px); }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+  }
+  ::selection {
+    @apply bg-brand-100;
+  }
+  :focus-visible {
+    @apply rounded-md outline-2 outline-offset-2 outline-brand;
+  }
+  /* logo SVGs injected from logos.ts fill their box */
+  .logo svg {
+    @apply size-full;
+  }
+  /* inline icon strokes */
+  .ico {
+    @apply fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round];
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { pathToFileURL, fileURLToPath } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -150,7 +150,8 @@ function iconify(id) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}">${icon.body}</svg>`;
 }
 
-const si = await import(pathToFileURL(path.join(root, "node_modules/simple-icons/index.mjs")).href);
+// Resolved through Node, so it works with workspace hoisting (node_modules at the repo root).
+const si = await import("simple-icons");
 const bySlug = new Map(Object.values(si).filter((x) => x?.slug).map((x) => [x.slug, x]));
 const slugs = JSON.parse(fs.readFileSync(path.join(root, "scripts/simple-icon-slugs.json"), "utf8"));
 

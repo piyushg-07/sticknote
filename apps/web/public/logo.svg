@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E8F5FE"/><stop offset="1" stop-color="#BFE3FA"/></linearGradient>
+    <clipPath id="tile4"><rect x="100" y="100" width="824" height="824" rx="190"/></clipPath><filter id="sh4" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0E3A5C" flood-opacity="0.22"/></filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="190" fill="url(#g4)"/>
+  <g clip-path="url(#tile4)" filter="url(#sh4)">
+    <rect x="520" y="230" width="520" height="300" rx="50" fill="#C9D3DD"/>
+    <rect x="420" y="360" width="620" height="300" rx="50" fill="#4FA8E8"/>
+    <path d="M340 490 h660 a40 40 0 0 1 40 40 v170 l-90 90 h-610 a40 40 0 0 1 -40 -40 v-220 a40 40 0 0 1 40 -40 z" fill="#FFFFFF"/>
+    <path d="M1040 700 l-90 90 v-54 a40 40 0 0 1 40 -36 z" fill="#EEF2F6"/>
+  </g>
+  <g stroke="#C9D3DD" stroke-width="26" stroke-linecap="round"><path d="M380 590 h280"/><path d="M380 665 h190"/></g>
+</svg>

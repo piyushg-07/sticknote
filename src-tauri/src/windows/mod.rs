@@ -1,6 +1,7 @@
 //! Window factories. Every window is created on demand and destroyed on
 //! close (never merely hidden), so idle memory stays minimal.
 
+pub mod capture;
 pub mod deck;
 pub mod manager;
 pub mod note;

@@ -82,6 +82,27 @@ pub fn normalize(mut n: Note) -> Note {
     if n.updated < n.created {
         n.updated = n.created;
     }
+    // Apps: migrate the old single field, keep valid unique names, max 5.
+    if let Some(old) = n.app.take() {
+        if n.apps.is_empty() {
+            n.apps.push(old);
+        }
+    }
+    let mut apps: Vec<String> = Vec::new();
+    for a in n.apps.drain(..) {
+        let a = a.to_ascii_lowercase();
+        if valid_app(&a) && !apps.contains(&a) && apps.len() < MAX_APPS {
+            apps.push(a);
+        }
+    }
+    n.apps = apps;
+    // Keep past-due reminders (they fire at startup); drop absurd ones.
+    if n.remind_at.is_some_and(|t| t > now + 5 * 365 * 86_400_000) {
+        n.remind_at = None;
+    }
+    if n.remind_at.is_none() {
+        n.repeat = None;
+    }
     if let Some(b) = n.bounds {
         if b.w < 200 || b.h < 160 || b.w > 4000 || b.h > 4000 {
             n.bounds = None;

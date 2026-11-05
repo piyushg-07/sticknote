@@ -18,6 +18,10 @@ import { agoLong } from "../../lib/time";
 import { Editor } from "../../editor/editor";
 import { toolbar } from "../../editor/toolbar";
 import { swatches } from "../../components/swatches";
+import { appChip, reminderChip } from "../../components/note-meta";
+import { initTooltips } from "../../components/tooltip";
+
+initTooltips();
 import type { Note, NoteFont } from "../../lib/types";
 
 const win = getCurrentWindow();
@@ -38,7 +42,31 @@ const title = h("input", {
 const meta = h("span", { class: "note-meta", "data-tauri-drag-region": true });
 const hideBtn = h("button", { class: "note-icon", title: "Hide (click its tab to bring it back)", "aria-label": "Hide" }, icon("minus", 15));
 const closeBtn = h("button", { class: "note-icon", title: "Close (Esc)", "aria-label": "Close" }, icon("close", 15));
-const head = h("header", { class: "note-head", "data-tauri-drag-region": true }, title, meta, hideBtn, closeBtn);
+const remind = reminderChip({
+  dark: true,
+  onSet: (at, repeat) => {
+    note.remindAt = at ?? undefined;
+    note.repeat = repeat ?? undefined;
+    remind.set(note);
+    void api.setReminder(id, at, repeat);
+  },
+});
+const appTie = appChip({
+  dark: true,
+  onSet: (apps) => {
+    note.apps = apps;
+    void api.setNoteApps(id, apps);
+  },
+});
+const head = h(
+  "header",
+  { class: "note-head", "data-tauri-drag-region": true },
+  title,
+  h("div", { class: "note-chips" }, remind.el, appTie.el),
+  meta,
+  hideBtn,
+  closeBtn,
+);
 
 const bodyEl = h("div", { class: "note-body" });
 const editor = new Editor(bodyEl, { onChange: () => scheduleSave() });
@@ -124,6 +152,8 @@ function paint(full: boolean) {
   shell.dataset.color = String(note.color);
   shell.dataset.font = note.font;
   picker.set(note.color);
+  remind.set(note);
+  appTie.set(note);
   if (full || document.activeElement !== title) title.value = note.title;
   if (full || !editor.hasFocus()) editor.setHTML(note.body);
   renderMeta();

@@ -2,7 +2,7 @@
 
 use crate::commands::settings;
 use crate::models::{Edge, SettingsPatch, SettingsView};
-use crate::windows::{manager, note};
+use crate::windows::manager;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Wry};
@@ -97,10 +97,9 @@ fn on_menu(app: &AppHandle, id: &str) {
     }
 }
 
+/// "New note" from the tray / global shortcut: the quick-capture card.
 pub fn new_note_window(app: &AppHandle) {
-    if let Ok(n) = crate::commands::notes::create_note_inner(app, None) {
-        let _ = note::open(app, &n.id, None);
-    }
+    crate::windows::capture::show(app);
 }
 
 /// Keep tray labels/checks in sync with settings changed elsewhere.

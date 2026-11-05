@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "capture",
+  "description": "Quick capture card: create a note from typed text, then hide itself.",
+  "windows": [
+    "capture"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-hide",
+    "allow-quick-note",
+    "allow-open-note-window",
+    "allow-get-settings"
+  ]
+}

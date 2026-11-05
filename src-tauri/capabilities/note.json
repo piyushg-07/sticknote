@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "note",
   "description": "A single note window: edit its own note, recolour, archive, delete.",
-  "windows": ["note-*"],
+  "windows": [
+    "note-*"
+  ],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
@@ -23,6 +25,10 @@
     "allow-note-id",
     "allow-get-settings",
     "allow-open-link",
-    "allow-open-manager"
+    "allow-open-manager",
+    "allow-set-reminder",
+    "allow-set-note-apps",
+    "allow-context-apps",
+    "allow-app-icons"
   ]
 }

@@ -2,7 +2,10 @@
 // and the note list with selection checkboxes and drag-to-reorder handles.
 import { h, displayTitle, preview } from "../../lib/dom";
 import { icon } from "../../lib/icons";
-import { ago } from "../../lib/time";
+import { ago, reminderChipLabel } from "../../lib/time";
+import { appName } from "../../lib/apps";
+import { appStack, appsLabel } from "../../components/app-picker";
+import { checklistProgress } from "../../lib/progress";
 import { showMenu } from "../../components/menu";
 import { api } from "../../lib/api";
 import type { Note, SortMode } from "../../lib/types";
@@ -147,11 +150,13 @@ export function listPanel() {
       h("span", { class: "row-stripe" }),
       h("div", { class: "row-main" },
         h("div", { class: "row-top" },
+          n.alert ? h("span", { class: "row-alert", title: "Reminder is due" }) : null,
           h("span", { class: "row-title truncate" }, displayTitle(n.title, n.text)),
           n.status === "archived" ? h("span", { class: "badge" }, "Archived") : null,
           h("span", { class: "row-time" }, ago(n.updated)),
         ),
         h("div", { class: "row-preview truncate t-hand" }, preview(n.title ? n.text : n.text.split("\n").slice(1).join("\n")) || " "),
+        rowMeta(n),
       ),
       handle,
     );
@@ -159,6 +164,22 @@ export function listPanel() {
     r.addEventListener("dblclick", () => void actions.openWindow(n.id));
     if (handle) bindDrag(handle, r);
     return r;
+  }
+
+  /** Small chips under a row: checklist progress, reminder, app. */
+  function rowMeta(n: Note): HTMLElement | null {
+    const prog = checklistProgress(n.text);
+    const apps = n.apps ?? [];
+    if (!prog && !n.remindAt && !apps.length) return null;
+    const bar = prog ? h("span", { class: "row-bar" }, h("span")) : null;
+    bar?.style.setProperty("--progress", String(prog!.ratio));
+    return h(
+      "div",
+      { class: "row-meta" },
+      prog ? h("span", { class: `row-chip${prog.done === prog.total ? " done" : ""}` }, bar, `${prog.done}/${prog.total}`) : null,
+      n.remindAt ? h("span", { class: "row-chip" }, icon(n.repeat ? "restore" : "bell", 11), reminderChipLabel(n.remindAt, n.repeat)) : null,
+      apps.length ? h("span", { class: "row-chip", title: apps.map(appName).join(", ") }, appStack(apps, 13, 3), appsLabel(apps)) : null,
+    );
   }
 
   // ---- drag to reorder (handle on the right) -----------------------------

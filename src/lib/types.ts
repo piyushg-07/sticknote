@@ -4,6 +4,9 @@ export type Status = "active" | "archived";
 export type Theme = "auto" | "light" | "dark";
 export type Edge = "left" | "right";
 export type NoteFont = "hand" | "normal" | "rounded" | "typewriter";
+export const MAX_APPS = 5;
+
+export type Repeat = "daily" | "weekdays" | "weekly" | "monthly";
 export type SortMode = "manual" | "updated" | "created" | "title";
 
 export interface Bounds {
@@ -28,6 +31,20 @@ export interface Note {
   created: number;
   updated: number;
   bounds?: Bounds;
+  /** When to remind (ms since epoch); cleared once it fires. */
+  remindAt?: number;
+  /** repeat the reminder; the next time is scheduled when it fires */
+  repeat?: Repeat;
+  /** A reminder fired and the note hasn't been opened since. */
+  alert: boolean;
+  /** Only shown on the deck while one of these apps (exe names) is in
+   *  front; empty = every app. At most MAX_APPS. */
+  apps?: string[];
+}
+
+export interface ContextApps {
+  current: string | null;
+  recent: string[];
 }
 
 export interface NotePatch {

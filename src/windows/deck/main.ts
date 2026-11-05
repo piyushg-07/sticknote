@@ -16,7 +16,8 @@ import { on } from "../../lib/events";
 import { setTheme } from "../../lib/theme";
 import { displayTitle, h, setRich } from "../../lib/dom";
 import { icon } from "../../lib/icons";
-import { agoLong } from "../../lib/time";
+import { agoLong, clockLabel } from "../../lib/time";
+import { checklistProgress } from "../../lib/progress";
 import type { Edge, Note } from "../../lib/types";
 
 const SWITCH_DELAY = 50; // tiny dwell when sweeping across tabs (prevents flicker)
@@ -29,6 +30,7 @@ const CLOSE_MS = 200; // must match .card-wrap.leaving in deck.css
 const GAP = -6;
 const TOAST_MS = 10_000;
 const SHADOW_ROOM = 22;
+const REMINDER_PEEK_MS = 8000; // how long a fired reminder keeps its card out
 
 // ---- DOM -------------------------------------------------------------------
 const root = document.getElementById("deck")!;
@@ -63,6 +65,11 @@ let hideTimer: number | undefined;
 let toastEl: HTMLElement | null = null;
 let toastTimer: number | undefined;
 let dragging = false;
+let frontApp: string | null = null; // app in front (for notes tied to an app)
+let pointerNear = false;
+let alertTimer: number | undefined;
+/** note id → when its missed reminder was due (for the card's label) */
+const missed = new Map<string, number>();
 let lastSize = "";
 
 const cssNum = (name: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
@@ -129,10 +136,18 @@ function tabHeights(list: Note[]): number[] {
   return base.map((v) => Math.max(40, Math.floor(v * k)));
 }
 
+/** Notes the deck shows right now: active, on the deck, and either for every
+ *  app or for the app currently in front. */
+function deckNotes(): Note[] {
+  return notes
+    .filter((n) => n.status === "active" && n.onDeck && (!n.apps?.length || (!!frontApp && n.apps.includes(frontApp))))
+    .sort((a, b) => a.order - b.order);
+}
+
 function render() {
   if (dragging) return;
   root.dataset.edge = edge;
-  const list = notes.filter((n) => n.status === "active" && n.onDeck).sort((a, b) => a.order - b.order);
+  const list = deckNotes();
   const heights = tabHeights(list);
 
   // Show as many as fit (with room for an open card); the rest live in All notes.
@@ -152,19 +167,23 @@ function render() {
   stack.replaceChildren(
     ...list.slice(0, shown).map((n, i) => {
       const label = displayTitle(n.title, n.text);
+      const prog = checklistProgress(n.text);
       const tab = h(
         "div",
         {
-          class: `tab${openWindows.has(n.id) ? " active" : ""}`,
+          class: `tab${openWindows.has(n.id) ? " active" : ""}${n.alert ? " alert" : ""}${prog ? " has-progress" : ""}`,
           "data-id": n.id,
           "data-color": n.color,
           role: "button",
           tabindex: 0,
-          "aria-label": label,
+          "aria-label": prog ? `${label}, ${prog.done} of ${prog.total} done` : label,
         },
         h("div", { class: "tab-strip" }, h("span", { class: "tab-label" }, label)),
+        prog ? h("span", { class: "tab-progress", "aria-hidden": "true" }) : null,
+        n.alert ? h("span", { class: "tab-alert", "aria-hidden": "true" }) : null,
       );
       tab.style.setProperty("--tab-h", `${heights[i]}px`);
+      if (prog) tab.style.setProperty("--progress", String(prog.ratio));
       bindTab(tab);
       return tab;
     }),
@@ -212,10 +231,22 @@ const SWAP_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 function contentFor(n: Note): HTMLElement[] {
   const body = h("div", { class: "peek-body rich" });
   setRich(body, n.body);
+  const prog = checklistProgress(n.text);
+  const bar = prog ? h("span", { class: "peek-bar" }, h("span")) : null;
+  bar?.style.setProperty("--progress", String(prog!.ratio));
   return [
+    ...(n.alert
+      ? [h("div", { class: `peek-alert${missed.has(n.id) ? " missed" : ""}` }, icon("bell", 12),
+          missed.has(n.id) ? `Missed · ${clockLabel(missed.get(n.id)!)}` : "Reminder")]
+      : []),
     h("div", { class: "peek-title truncate" }, displayTitle(n.title, n.text)),
     body,
-    h("div", { class: "peek-foot" }, `Edited ${agoLong(n.updated)} · Click to open`),
+    h(
+      "div",
+      { class: "peek-foot" },
+      prog ? h("span", { class: "peek-progress" }, bar, `${prog.done} of ${prog.total} done`) : null,
+      h("span", null, `Edited ${agoLong(n.updated)}`),
+    ),
   ];
 }
 
@@ -473,10 +504,14 @@ function nearDeck(e: PointerEvent): boolean {
 document.addEventListener("pointermove", (e) => {
   pointer = { x: e.screenX, y: e.screenY };
   if (dragging) return;
-  if (nearDeck(e)) void engage();
+  pointerNear = nearDeck(e);
+  if (pointerNear) void engage();
   else scheduleLeave();
 });
-document.documentElement.addEventListener("pointerleave", () => scheduleLeave());
+document.documentElement.addEventListener("pointerleave", () => {
+  pointerNear = false;
+  scheduleLeave();
+});
 
 function scheduleLeave() {
   if (leaveTimer !== undefined || !engaged) return;
@@ -582,8 +617,7 @@ plus.addEventListener("animationend", () => plus.classList.remove("pressed"));
 plus.addEventListener("click", async () => {
   await new Promise((r) => setTimeout(r, 140)); // let the press feedback play
   disengage();
-  const n = await api.createNote();
-  await api.openNoteWindow(n.id);
+  await api.openCapture(); // quick capture card beside the deck
 });
 more.addEventListener("click", () => void api.openManager("deck"));
 
@@ -623,6 +657,27 @@ async function reload() {
 }
 
 void on("notes:changed", () => void reload());
+
+// A reminder is due: pop its card out of the deck for a few seconds.
+void on("reminder:fired", async ({ id, due, missed: wasMissed }) => {
+  if (wasMissed) missed.set(id, due);
+  else missed.delete(id);
+  await reload();
+  const tab = stack.querySelector<HTMLElement>(`.tab[data-id="${id}"]`);
+  if (!tab) return; // not on the deck right now; the notification covers it
+  await engage(tab);
+  clearTimeout(alertTimer);
+  alertTimer = window.setTimeout(() => {
+    if (!pointerNear) disengage();
+  }, REMINDER_PEEK_MS);
+});
+
+// Notes tied to an app come and go as you switch apps.
+void on("context:app", (exe) => {
+  const before = deckNotes().map((n) => n.id).join();
+  frontApp = exe;
+  if (deckNotes().map((n) => n.id).join() !== before) render();
+});
 void on("notes:deleted", (p) => showToast(p.title, p.count, p.token));
 void on("notes:restored", () => hideToast());
 void on("deck:note-windows", (ids) => {
@@ -639,6 +694,7 @@ void on("settings:changed", (s) => {
 });
 
 (async () => {
+  frontApp = (await api.contextApps()).current;
   const s = await api.getSettings();
   setTheme(s.theme);
   edge = s.edge;

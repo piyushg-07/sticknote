@@ -25,6 +25,16 @@ npm run app:build    # release build + NSIS/MSI installers in src-tauri/target/r
 - **All notes window** – All / On the deck / Archive, search, sort (deck order,
   last edited, created, title), multi-select with bulk archive/export/delete,
   drag handle reordering, in-place editing, settings, about.
+- **Quick capture** – Ctrl+Alt+N (or the deck's "+") slides out a small sticky
+  note beside the deck: type, Enter, and it's a tab. Esc or clicking away keeps
+  the draft; Ctrl+Enter opens it as a full note.
+- **Reminders** – a bell chip on every note (30 min, 1 h, this evening, tomorrow,
+  next week, or any date and time). When due, the note's card pops out of the
+  deck and Windows shows a notification; the tab keeps a warm dot until opened.
+- **Notes for an app** – tie a note to an app you use (VS Code, Chrome, Excel…);
+  the deck shows it only while that app is in front.
+- **Checklist progress** – tabs show a slim progress track, pills fill up, the
+  card and the note list show "3 of 5 done".
 - **Delete with undo** – no confirmation; a 10-second Undo toast (Ctrl+Z).
 - **Archive** – "Mark complete" archives; restore any time.
 - **Tray menu**, **global hotkeys**, **start with Windows**, **hide over
@@ -35,7 +45,7 @@ npm run app:build    # release build + NSIS/MSI installers in src-tauri/target/r
 
 | Global | | In a note | |
 |---|---|---|---|
-| Ctrl+Alt+N | New note | Esc | Close |
+| Ctrl+Alt+N | Quick note | Esc | Close |
 | Ctrl+Alt+A | All notes | Ctrl+. | Cycle colour |
 | Ctrl+Alt+L | Archive | Ctrl+Backspace | Delete (10 s undo) |
 | | | Ctrl+B / I / U | Bold / italic / underline |

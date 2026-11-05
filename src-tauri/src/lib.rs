@@ -14,6 +14,7 @@ mod commands;
 mod error;
 mod models;
 mod platform;
+mod reminders;
 mod sanitize;
 mod shortcuts;
 mod state;
@@ -21,7 +22,7 @@ mod store;
 mod tray;
 mod windows;
 
-use models::{now_ms, Note, Status};
+use models::{now_ms, Note};
 use state::AppState;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_autostart::MacosLauncher;
@@ -36,20 +37,12 @@ pub fn quit(app: &AppHandle) {
 fn welcome_notes() -> Vec<Note> {
     let now = now_ms();
     let mk = |i: i64, title: &str, body: &str, color: u8| {
-        store::normalize(Note {
-            id: uuid::Uuid::new_v4().to_string(),
-            title: title.into(),
-            body: body.into(),
-            text: String::new(),
-            color,
-            font: Default::default(),
-            status: Status::Active,
-            on_deck: true,
-            order: i,
-            created: now - (i as u64) * 60_000,
-            updated: now - (i as u64) * 60_000,
-            bounds: None,
-        })
+        let mut n = Note::new(color, i);
+        n.title = title.into();
+        n.body = body.into();
+        n.created = now - (i as u64) * 60_000;
+        n.updated = n.created;
+        store::normalize(n)
     };
     vec![
         mk(0, "Welcome", "<div>Your notes live on the edge of the screen. Hover a tab to peek, click it to edit.</div><div><br></div><div>Press <b>Ctrl+Alt+N</b> anywhere for a new note.</div>", 3),
@@ -68,6 +61,7 @@ pub fn run() {
         .plugin(shortcuts::plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let handle = app.handle().clone();
             let paths = store::DataPaths::resolve(app.path().document_dir().ok())?;
@@ -83,6 +77,8 @@ pub fn run() {
             shortcuts::register(&handle);
             windows::deck::create(&handle)?;
             windows::note::prewarm(&handle); // a ready note window = instant opening
+            windows::capture::create(&handle)?; // hidden until Ctrl+Alt+N / "+"
+            reminders::start(&handle);
             platform::start_fullscreen_watcher(handle.clone());
 
             let autostarted = std::env::args().any(|a| a == AUTOSTART_FLAG);
@@ -106,6 +102,10 @@ pub fn run() {
             commands::notes::set_color,
             commands::notes::cycle_color,
             commands::notes::set_font,
+            commands::notes::set_reminder,
+            commands::notes::clear_alert,
+            commands::notes::set_note_apps,
+            commands::notes::quick_note,
             commands::notes::set_status,
             commands::notes::set_on_deck,
             commands::notes::delete_notes,
@@ -122,6 +122,9 @@ pub fn run() {
             commands::window::close_self,
             commands::window::note_ready,
             commands::window::note_id,
+            commands::window::open_capture,
+            commands::window::context_apps,
+            commands::window::app_icons,
             commands::window::quit_app,
             commands::io::export_notes,
             commands::io::open_link,

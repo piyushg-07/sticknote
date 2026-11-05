@@ -16,6 +16,10 @@ import { listPanel } from "./list";
 import { detailPane } from "./detail";
 import { settingsView } from "./settings-view";
 import { aboutView } from "./about-view";
+import { loadIcons } from "../../lib/apps";
+import { initTooltips } from "../../components/tooltip";
+
+initTooltips();
 
 const win = getCurrentWindow();
 
@@ -140,6 +144,9 @@ window.addEventListener("blur", () => {
   setTheme(settingsData.theme);
   const view = initial ?? "all";
   update({ notes, settings: settingsData, view });
+  // Real app names/icons for notes tied to an app (only if any are).
+  const tied = notes.flatMap((n) => n.apps ?? []);
+  if (tied.length) void loadIcons(tied).then(() => list.repaint()).catch(() => {});
   route();
   await new Promise((r) => requestAnimationFrame(r));
   const first = visibleNotes()[0];

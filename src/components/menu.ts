@@ -3,7 +3,7 @@ import { h } from "../lib/dom";
 import { icon, type IconName } from "../lib/icons";
 
 export type MenuEntry =
-  | { label: string; icon?: IconName; checked?: boolean; run: () => void; danger?: boolean; font?: string }
+  | { label: string; icon?: IconName; checked?: boolean; run: () => void; danger?: boolean; font?: string; hint?: string }
   | { separator: true }
   | { heading: string };
 
@@ -40,6 +40,7 @@ export function showMenu(anchor: HTMLElement, entries: MenuEntry[], opts: MenuOp
         },
         e.icon ? icon(e.icon) : null,
         h("span", { class: "truncate" }, e.label),
+        e.hint ? h("span", { class: "hint" }, e.hint) : null,
         e.checked ? h("span", { class: "check" }, icon("check")) : null,
       );
       if (e.danger) b.classList.add("btn-danger");

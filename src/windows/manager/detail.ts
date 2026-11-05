@@ -5,6 +5,7 @@ import { icon } from "../../lib/icons";
 import { agoLong, fullDate } from "../../lib/time";
 import { Editor } from "../../editor/editor";
 import { swatches } from "../../components/swatches";
+import { appChip, reminderChip } from "../../components/note-meta";
 import { noteById, state, subscribe, update } from "./state";
 import { actions, hooks } from "./actions";
 
@@ -16,7 +17,30 @@ export function detailPane() {
   const doneBtn = h("button", { class: "icon-btn" });
   const deckBtn = h("button", { class: "icon-btn" });
   const delBtn = h("button", { class: "icon-btn danger", title: "Delete (Ctrl+Backspace)", "aria-label": "Delete" }, icon("trash"));
-  const head = h("div", { class: "detail-head" }, dot, status, h("div", { class: "grow" }), openBtn, doneBtn, deckBtn, delBtn);
+  const remind = reminderChip({
+    onSet: (at, repeat) => {
+      const id = state.selectedId;
+      if (id) void api.setReminder(id, at, repeat);
+    },
+  });
+  const appTie = appChip({
+    onSet: (apps) => {
+      const id = state.selectedId;
+      if (id) void api.setNoteApps(id, apps);
+    },
+  });
+  const head = h(
+    "div",
+    { class: "detail-head" },
+    dot,
+    status,
+    h("div", { class: "detail-chips" }, remind.el, appTie.el),
+    h("div", { class: "grow" }),
+    openBtn,
+    doneBtn,
+    deckBtn,
+    delBtn,
+  );
 
   // ---- card ---------------------------------------------------------------
   const title = h("input", { class: "card-title", placeholder: "Title", maxlength: 200, spellcheck: "false", "aria-label": "Note title" });
@@ -107,6 +131,8 @@ export function detailPane() {
     deckBtn.title = archived ? "Restore to the deck" : n.onDeck ? "Take off the deck" : "Put on the deck";
     deckBtn.setAttribute("aria-label", deckBtn.title);
     picker.set(n.color);
+    remind.set(n);
+    appTie.set(n);
     edited.textContent = `edited ${agoLong(n.updated).replace(" ago", "")}`;
     dates.textContent = `Created ${fullDate(n.created)} · Updated ${agoLong(n.updated)}`;
   }

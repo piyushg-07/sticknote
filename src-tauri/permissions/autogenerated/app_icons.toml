@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-app-icons"
+description = "Enables the app_icons command without any pre-configured scope."
+commands.allow = ["app_icons"]
+
+[[permission]]
+identifier = "deny-app-icons"
+description = "Denies the app_icons command without any pre-configured scope."
+commands.deny = ["app_icons"]

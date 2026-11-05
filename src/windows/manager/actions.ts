@@ -34,6 +34,7 @@ export const actions = {
     if (id === state.selectedId) return;
     await hooks.flushEditor();
     update({ selectedId: id });
+    if (id && noteById(id)?.alert) void api.clearAlert(id).catch(() => {});
   },
 
   async create() {

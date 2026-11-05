@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "manager",
   "description": "The All notes window: full note management, settings and import/export.",
-  "windows": ["manager"],
+  "windows": [
+    "manager"
+  ],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
@@ -34,6 +36,11 @@
     "allow-close-self",
     "allow-quit-app",
     "allow-export-notes",
-    "allow-open-link"
+    "allow-open-link",
+    "allow-set-reminder",
+    "allow-set-note-apps",
+    "allow-context-apps",
+    "allow-clear-alert",
+    "allow-app-icons"
   ]
 }

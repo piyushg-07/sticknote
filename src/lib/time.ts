@@ -1,4 +1,5 @@
 // Human-friendly time formatting.
+import type { Repeat } from "./types";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -29,6 +30,50 @@ export function shortDate(ms: number): string {
     month: "short",
     ...(sameYear ? {} : { year: "numeric" }),
   });
+}
+
+// ---- reminders ------------------------------------------------------------------
+
+const clock = (d: Date) => d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** "Today 5:00 PM", "Tomorrow 9:00 AM", "Mon 9:00 AM", "12 Nov, 9:00 AM". */
+export function reminderLabel(ms: number): string {
+  const d = new Date(ms);
+  const days = Math.round((startOfDay(d).getTime() - startOfDay(new Date()).getTime()) / DAY);
+  if (days === 0) return `Today ${clock(d)}`;
+  if (days === 1) return `Tomorrow ${clock(d)}`;
+  if (days > 1 && days < 7) return `${d.toLocaleDateString(undefined, { weekday: "short" })} ${clock(d)}`;
+  return `${shortDate(ms)}, ${clock(d)}`;
+}
+
+export const REPEAT_LABEL: Record<Repeat, string> = {
+  daily: "Daily",
+  weekdays: "Weekdays",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
+
+/** Chip label: "Today 5:00 PM", or for repeats "Daily · 9:00 AM",
+ *  "Weekly · Mon 9:00 AM", "Monthly · 12th 9:00 AM". */
+export function reminderChipLabel(ms: number, repeat?: Repeat): string {
+  if (!repeat) return reminderLabel(ms);
+  const d = new Date(ms);
+  if (repeat === "weekly") return `Weekly · ${d.toLocaleDateString(undefined, { weekday: "short" })} ${clock(d)}`;
+  if (repeat === "monthly") return `Monthly · ${ordinal(d.getDate())} ${clock(d)}`;
+  return `${REPEAT_LABEL[repeat]} · ${clock(d)}`;
+}
+
+export function clockLabel(ms: number): string {
+  return clock(new Date(ms));
+}
+
+function ordinal(n: number): string {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${s}`;
 }
 
 export function fullDate(ms: number): string {

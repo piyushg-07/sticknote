@@ -1,0 +1,151 @@
+@import "../../styles/base.css";
+@import "../../styles/components.css";
+
+/* Quick capture: a small sticky note that slides out beside the deck. */
+html,
+body {
+  background: transparent;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  padding: 12px;
+}
+
+.cap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: var(--note-bg);
+  color: var(--note-ink);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.14);
+  transition: background var(--dur-med) var(--ease-in-out);
+  opacity: 0;
+}
+
+/* Enter: slide out from the deck's side. Leave: fade back toward it.
+   Saved: tuck into the deck (it just became a tab there). */
+.cap.enter {
+  opacity: 1;
+  animation: cap-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cap.leave {
+  animation: cap-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+.cap.saved {
+  animation: cap-saved 280ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@keyframes cap-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--from-edge, 1) * 18px)) scale(0.97);
+  }
+}
+@keyframes cap-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--from-edge, 1) * 10px)) scale(0.98);
+  }
+}
+@keyframes cap-saved {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--from-edge, 1) * 60px)) scale(0.6);
+  }
+}
+
+.cap-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 14px 16px 4px 18px;
+}
+.cap-title {
+  flex: 1;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--note-ink-muted);
+}
+.cap .swatches {
+  gap: 4px;
+}
+.cap .swatch {
+  width: 14px;
+  height: 14px;
+}
+
+.cap-text {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 18px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--note-ink);
+  caret-color: var(--note-ink);
+  font-family: var(--font-hand);
+  font-size: var(--note-body-size);
+  line-height: 1.4;
+}
+.cap-text::placeholder {
+  color: var(--note-ink-muted);
+}
+.cap-text::-webkit-scrollbar-thumb {
+  background-color: var(--note-ink-faint);
+}
+
+.cap-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 10px 10px 18px;
+}
+.cap-hint {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--note-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cap-hint kbd {
+  height: 18px;
+  padding: 0 5px;
+  border-color: var(--note-ink-faint);
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--note-ink);
+  font-size: var(--text-2xs);
+}
+.cap-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--note-ink);
+  white-space: nowrap;
+  transition: background var(--dur-fast);
+}
+.cap-open:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cap.enter,
+  .cap.leave,
+  .cap.saved {
+    animation-duration: 1ms;
+  }
+}

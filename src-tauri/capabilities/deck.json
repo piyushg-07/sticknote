@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "deck",
   "description": "The edge deck: read notes, open them, reorder, and size itself.",
-  "windows": ["deck"],
+  "windows": [
+    "deck"
+  ],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
@@ -13,6 +15,8 @@
     "allow-open-manager",
     "allow-deck-resize",
     "allow-undo-delete",
-    "allow-get-settings"
+    "allow-get-settings",
+    "allow-open-capture",
+    "allow-context-apps"
   ]
 }

@@ -37,6 +37,18 @@ pub fn get_note(id: String, state: State<AppState>) -> AppResult<Note> {
 /// Create a note at the top of the deck. Colour rotates so consecutive notes
 /// are easy to tell apart.
 pub fn create_note_inner(app: &AppHandle, origin: Option<&str>) -> AppResult<Note> {
+    create_note_with(app, origin, String::new(), String::new(), None)
+}
+
+/// Create a note at the top of the deck. Colour rotates (unless given) so
+/// consecutive notes are easy to tell apart.
+fn create_note_with(
+    app: &AppHandle,
+    origin: Option<&str>,
+    title: String,
+    body: String,
+    color: Option<u8>,
+) -> AppResult<Note> {
     let state = app.state::<AppState>();
     let note = {
         let mut g = state.inner.lock();
@@ -44,27 +56,13 @@ pub fn create_note_inner(app: &AppHandle, origin: Option<&str>) -> AppResult<Not
             return Err(AppError::Invalid("Note limit reached".into()));
         }
         let min_order = g.notes.iter().map(|n| n.order).min().unwrap_or(0);
-        let color = g
-            .notes
-            .iter()
-            .max_by_key(|n| n.created)
-            .map(|n| (n.color + 1) % COLOR_COUNT)
-            .unwrap_or(3);
-        let now = now_ms();
-        let note = Note {
-            id: uuid::Uuid::new_v4().to_string(),
-            title: String::new(),
-            body: String::new(),
-            text: String::new(),
-            color,
-            font: Default::default(),
-            status: Status::Active,
-            on_deck: true,
-            order: min_order - 1,
-            created: now,
-            updated: now,
-            bounds: None,
-        };
+        let color = color.unwrap_or_else(|| {
+            g.notes.iter().max_by_key(|n| n.created).map(|n| (n.color + 1) % COLOR_COUNT).unwrap_or(3)
+        });
+        let mut note = Note::new(color, min_order - 1);
+        note.title = clamp_chars(title.replace(['\n', '\r'], " ").trim(), MAX_TITLE);
+        note.body = sanitize::clean_html(&body);
+        note.text = sanitize::html_to_text(&note.body);
         g.notes.insert(0, note.clone());
         note
     };
@@ -320,3 +318,90 @@ pub fn save_note_bounds(id: String, bounds: Bounds, app: AppHandle, state: State
     Ok(())
 }
 
+
+/// Quick capture: the first line becomes the title, the rest the body.
+#[tauri::command]
+pub fn quick_note(text: String, color: Option<u8>, app: AppHandle, window: WebviewWindow) -> AppResult<Note> {
+    if text.len() > MAX_BODY {
+        return Err(AppError::Invalid("Note is too long".into()));
+    }
+    if color.is_some_and(|c| c >= COLOR_COUNT) {
+        return Err(AppError::Invalid("Unknown colour".into()));
+    }
+    let text = text.trim();
+    let mut lines = text.lines();
+    let title = lines.next().unwrap_or("").to_string();
+    let body: String = lines
+        .map(|l| if l.trim().is_empty() { "<div><br></div>".to_string() } else { format!("<div>{}</div>", escape_html(l)) })
+        .collect();
+    create_note_with(&app, Some(window.label()), title, body, color)
+}
+
+fn escape_html(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
+/// Set (Some) or clear (None) a note's reminder, optionally repeating.
+#[tauri::command]
+pub fn set_reminder(
+    id: String,
+    at: Option<u64>,
+    repeat: Option<Repeat>,
+    app: AppHandle,
+    window: WebviewWindow,
+) -> AppResult<()> {
+    if at.is_some_and(|t| !valid_remind_at(t)) {
+        return Err(AppError::Invalid("Pick a time in the future".into()));
+    }
+    mutate(&app, Some(window.label()), vec![id], |n| {
+        n.remind_at = at;
+        n.repeat = at.and(repeat); // no time, no repeat
+        n.alert = false;
+    })
+}
+
+/// The user has seen a fired reminder.
+#[tauri::command]
+pub fn clear_alert(id: String, app: AppHandle) -> AppResult<()> {
+    validate_id(&id)?;
+    clear_alert_inner(&app, &id);
+    Ok(())
+}
+
+pub fn clear_alert_inner(app: &AppHandle, id: &str) {
+    let changed = {
+        let state = app.state::<AppState>();
+        let mut g = state.inner.lock();
+        match g.notes.iter_mut().find(|n| n.id == id && n.alert) {
+            Some(n) => {
+                n.alert = false;
+                true
+            }
+            None => false,
+        }
+    };
+    if changed {
+        app.state::<AppState>().schedule_save(app);
+        emit_changed(app, None, vec![id.to_string()]);
+    }
+}
+
+/// Tie a note to up to 5 apps (shown on the deck only while one of them is
+/// in front). An empty list means every app.
+#[tauri::command]
+pub fn set_note_apps(id: String, apps: Vec<String>, app: AppHandle, window: WebviewWindow) -> AppResult<()> {
+    if apps.len() > MAX_APPS {
+        return Err(AppError::Invalid(format!("Pick up to {MAX_APPS} apps")));
+    }
+    let mut list: Vec<String> = Vec::new();
+    for a in apps {
+        let a = a.to_ascii_lowercase();
+        if !valid_app(&a) {
+            return Err(AppError::Invalid("Unknown app".into()));
+        }
+        if !list.contains(&a) {
+            list.push(a);
+        }
+    }
+    mutate(&app, Some(window.label()), vec![id], move |n| n.apps = list.clone())
+}

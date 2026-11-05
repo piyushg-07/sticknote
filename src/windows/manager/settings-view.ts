@@ -8,7 +8,7 @@ import type { Settings, SettingsPatch } from "../../lib/types";
 import { state, subscribe, update } from "./state";
 
 const GLOBAL_KEYS: [string, string][] = [
-  ["Ctrl + Alt + N", "New note"],
+  ["Ctrl + Alt + N", "Quick note (Enter saves, Ctrl+Enter opens it)"],
   ["Ctrl + Alt + A", "All notes"],
   ["Ctrl + Alt + L", "Archive"],
 ];

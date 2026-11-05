@@ -5,9 +5,11 @@ import type {
   AppInfo,
   Bounds,
   DeletedPayload,
+  ContextApps,
   ManagerView,
   Note,
   NoteFont,
+  Repeat,
   NotePatch,
   Settings,
   SettingsPatch,
@@ -24,6 +26,11 @@ export const api = {
   cycleColor: (id: string) => invoke<number>("cycle_color", { id }),
   setFont: (id: string, font: NoteFont) => invoke<void>("set_font", { id, font }),
   setStatus: (ids: string[], status: Status) => invoke<void>("set_status", { ids, status }),
+  setReminder: (id: string, at: number | null, repeat: Repeat | null = null) =>
+    invoke<void>("set_reminder", { id, at, repeat }),
+  clearAlert: (id: string) => invoke<void>("clear_alert", { id }),
+  setNoteApps: (id: string, apps: string[]) => invoke<void>("set_note_apps", { id, apps }),
+  quickNote: (text: string, color?: number) => invoke<Note>("quick_note", { text, color }),
   setOnDeck: (id: string, onDeck: boolean) => invoke<void>("set_on_deck", { id, onDeck }),
   deleteNotes: (ids: string[]) => invoke<DeletedPayload>("delete_notes", { ids }),
   undoDelete: (token = 0) => invoke<string[]>("undo_delete", { token }),
@@ -43,6 +50,9 @@ export const api = {
   closeSelf: () => invoke<void>("close_self"),
   noteReady: () => invoke<void>("note_ready"),
   noteId: () => invoke<string | null>("note_id"),
+  openCapture: () => invoke<void>("open_capture"),
+  contextApps: () => invoke<ContextApps>("context_apps"),
+  appIcons: (exes: string[]) => invoke<[string, string | null][]>("app_icons", { exes }),
   quit: () => invoke<void>("quit_app"),
 
   // io

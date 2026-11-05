@@ -22,6 +22,7 @@ export default defineConfig({
         manager: resolve(root, "manager.html"),
         note: resolve(root, "note.html"),
         deck: resolve(root, "deck.html"),
+        capture: resolve(root, "capture.html"),
       },
     },
   },

@@ -49,6 +49,76 @@ pub struct Note {
     pub updated: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<Bounds>,
+    /// When to remind (ms since epoch). Cleared once it fires.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remind_at: Option<u64>,
+    /// Repeat the reminder (the next time is scheduled when it fires).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<Repeat>,
+    /// A reminder fired and the note hasn't been opened since.
+    #[serde(default)]
+    pub alert: bool,
+    /// Show this note on the deck only while one of these apps is in front
+    /// (lower-case executable names, e.g. "code.exe"; at most MAX_APPS).
+    /// Empty = every app.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub apps: Vec<String>,
+    /// Older single-app field; read once and moved into `apps`.
+    #[serde(default, skip_serializing)]
+    pub app: Option<String>,
+}
+
+pub const MAX_APPS: usize = 5;
+
+impl Note {
+    /// A fresh, empty, active note on the deck.
+    pub fn new(color: u8, order: i64) -> Self {
+        let now = now_ms();
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            title: String::new(),
+            body: String::new(),
+            text: String::new(),
+            color: color % COLOR_COUNT,
+            font: NoteFont::default(),
+            status: Status::Active,
+            on_deck: true,
+            order,
+            created: now,
+            updated: now,
+            bounds: None,
+            remind_at: None,
+            repeat: None,
+            alert: false,
+            apps: Vec::new(),
+            app: None,
+        }
+    }
+}
+
+/// How a reminder repeats. Dates are stepped on the local calendar, so
+/// "daily at 9:00" stays at 9:00 across daylight-saving changes.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Repeat {
+    Daily,
+    Weekdays,
+    Weekly,
+    Monthly,
+}
+
+/// Allowed shape of an app binding: a plain executable file name.
+pub fn valid_app(app: &str) -> bool {
+    let a = app.as_bytes();
+    (5..=80).contains(&a.len())
+        && app.to_ascii_lowercase().ends_with(".exe")
+        && a.iter().all(|c| c.is_ascii_alphanumeric() || matches!(c, b' ' | b'.' | b'_' | b'-' | b'(' | b')' | b'+'))
+}
+
+/// Reminders must be within a sane window (not years in the past/future).
+pub fn valid_remind_at(at: u64) -> bool {
+    let now = now_ms();
+    at + 60_000 >= now && at <= now + 5 * 365 * 86_400_000
 }
 
 /// Typeface a note is written in (the "Aa" menu).

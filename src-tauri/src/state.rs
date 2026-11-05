@@ -99,6 +99,7 @@ impl AppState {
 }
 
 pub fn emit_changed(app: &AppHandle, origin: Option<&str>, ids: Vec<String>) {
+    crate::reminders::poke(app);
     let _ = app.emit(
         events::NOTES_CHANGED,
         ChangedPayload { origin: origin.map(str::to_string), ids },

@@ -807,3 +807,84 @@ body {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   Reminders, app-bound notes, checklist progress
+   ========================================================================== */
+
+/* Header chips sit on the page (not on note paper): use theme colours. */
+.detail-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: var(--space-2);
+}
+.detail-head .meta-chip {
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+.detail-head .meta-chip:hover {
+  color: var(--text);
+  background: var(--surface-active);
+}
+.detail-head .meta-chip.empty {
+  background: transparent;
+  opacity: 1;
+  color: var(--text-faint);
+}
+.detail-head .meta-chip.empty:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+/* Row: a warm dot when a reminder is due, and small chips underneath. */
+.row-alert {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #f2683c;
+  box-shadow: 0 0 0 3px rgba(242, 104, 60, 0.18);
+}
+.row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.row-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-active);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.row-chip .icon {
+  stroke-width: 2.2;
+}
+.row-chip.done {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.row-bar {
+  position: relative;
+  width: 22px;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+.row-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--progress, 0) * 100%);
+  border-radius: inherit;
+  background: var(--accent);
+}

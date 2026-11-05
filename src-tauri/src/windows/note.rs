@@ -21,10 +21,11 @@ const POOL_PREFIX: &str = "note-pool-";
 const BIND_EVENT: &str = "note:bind";
 /// Event telling a hidden note window it is being shown again.
 const SHOWN_EVENT: &str = "note:shown";
-/// Default size of every note window (logical px): a 490×440 note plus the
-/// 8px transparent margin around it that holds its shadow.
+/// Default size of every note window (logical px): a 490×560 note plus the
+/// 8px transparent margin around it that holds its shadow. Tall enough for
+/// the reminder panel to open inside it without scrolling.
 const DEFAULT_W: f64 = 506.0;
-const DEFAULT_H: f64 = 456.0;
+const DEFAULT_H: f64 = 576.0;
 const CASCADE: f64 = 28.0; // offset for each additional open note
 /// Wait before preparing the next spare, so it never competes with the
 /// note that is opening right now.
@@ -121,6 +122,7 @@ fn prewarm_later(app: &AppHandle) {
 
 /// Open (or bring back) the window for note `id`, centred on screen.
 pub fn open(app: &AppHandle, id: &str, _anchor_y: Option<f64>) -> tauri::Result<()> {
+    crate::commands::notes::clear_alert_inner(app, id); // opening a note acknowledges its reminder
     // Already open (possibly hidden with "—"): show it again.
     if let Some(w) = label_for(id).and_then(|l| app.get_webview_window(&l)) {
         let _ = w.unminimize();

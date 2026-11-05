@@ -40,9 +40,10 @@ const stack = h("div", { class: "stack" });
 const plus = h("button", { class: "plus", title: "New note (Ctrl+Alt+N)", "aria-label": "New note" }, icon("plus", 14));
 const more = h("button", { class: "more", title: "Show all notes" });
 const glass = h("div", { class: "pill-glass", "aria-hidden": "true" });
-const appBadge = h("div", { class: "pill-app", "aria-hidden": "true" });
 const pillDivider = h("div", { class: "pill-divider", "aria-hidden": "true" });
-const column = h("div", { class: "column" }, glass, appBadge, pillDivider, stack, plus);
+/** App stickers beside notes for the app in front (own layer: tabs clip). */
+const tagLayer = h("div", { class: "app-tags", "aria-hidden": "true" });
+const column = h("div", { class: "column" }, glass, pillDivider, stack, tagLayer, plus);
 
 const cardLabel = h("span", { class: "tab-label" });
 const cardStrip = h("div", { class: "card-strip" }, cardLabel);
@@ -98,8 +99,9 @@ function measure() {
     w = cssNum("--deck-peek-w") + SHADOW_ROOM;
     hgt = fullHeight() + cssNum("--deck-peek-max-h") + 16;
   } else if (root.classList.contains("compact")) {
-    // room for the glass capsule and the app badge around the pills
-    w = Math.max(cssNum("--deck-pill-w") + 14, appGroup ? 22 : 0) + cssNum("--deck-pill-inset") * 2 + 6;
+    // pills' centre + half the glass capsule + room for its shadow
+    w = cssNum("--deck-pill-inset") + cssNum("--deck-pill-w") / 2 + cssNum("--deck-glass-w") / 2 + 10;
+    if (appGroup) w += TAG + 6; // stickers sit just outside the capsule
     hgt = pillHeight();
   } else {
     w = cssNum("--deck-tab-w") + 5 + SHADOW_ROOM;
@@ -174,13 +176,12 @@ function render() {
     shown++;
   }
   tabHs = heights.slice(0, shown);
-  appGroup = list.slice(0, shown).filter(forFrontApp).length;
   hasMore = list.length > shown;
 
   const reopen = openTab?.dataset.id;
   openTab = null;
-  stack.replaceChildren(
-    ...list.slice(0, shown).map((n, i) => {
+  appGroup = list.slice(0, shown).filter(forFrontApp).length;
+  const tabEls = list.slice(0, shown).map((n, i) => {
       const label = displayTitle(n.title, n.text);
       const prog = checklistProgress(n.text);
       const tab = h(
@@ -194,7 +195,6 @@ function render() {
           "aria-label": prog ? `${label}, ${prog.done} of ${prog.total} done` : label,
         },
         h("div", { class: "tab-strip" }, h("span", { class: "tab-label" }, label)),
-        forFrontApp(n) ? h("span", { class: "tab-app", title: `For ${appName(frontApp!)}` }, appIconEl(frontApp!, 16)) : null,
         prog ? h("span", { class: "tab-progress", "aria-hidden": "true" }) : null,
         n.alert ? h("span", { class: "tab-alert", "aria-hidden": "true" }) : null,
       );
@@ -202,8 +202,8 @@ function render() {
       if (prog) tab.style.setProperty("--progress", String(prog.ratio));
       bindTab(tab);
       return tab;
-    }),
-  );
+  });
+  stack.replaceChildren(...tabEls); // notes for the app in front come first
   if (hasMore) {
     more.textContent = `+${list.length - shown}`;
     if (!more.isConnected) column.insertBefore(more, plus);
@@ -233,25 +233,48 @@ function topInColumn(el: HTMLElement): number {
   return y;
 }
 
-const BADGE_H = 26; // app icon slot above the app's pills
 const DIVIDER_H = 12; // gap with a hairline between app notes and the rest
 const GLASS_PAD = 7; // capsule padding above/below the pills
+
+const TAG = 18; // sticker size
+
+/** One small logo sticker per note for the app in front, on the outer side
+ *  of its tab (tab mode) or beside its pill (pill mode). */
+function layoutTags(pillCentres: number[]) {
+  if (!appGroup || !frontApp) {
+    tagLayer.replaceChildren();
+    return;
+  }
+  const name = appName(frontApp);
+  tagLayer.replaceChildren(
+    ...tabs()
+      .slice(0, appGroup)
+      .map((t, i) => {
+        const tag = h("span", { class: "app-tag", "data-id": t.dataset.id!, title: `For ${name}` }, appIconEl(frontApp!, TAG));
+        tag.style.setProperty("--y-tab", `${Math.round(topInColumn(t) + 9)}px`);
+        tag.style.setProperty("--y-pill", `${Math.round(pillCentres[i] - TAG / 2)}px`);
+        return tag;
+      }),
+  );
+}
+
+const tagFor = (tab: HTMLElement) => tagLayer.querySelector<HTMLElement>(`.app-tag[data-id="${tab.dataset.id}"]`);
 
 /** Pill-mode geometry: one centred column of pills inside a glass capsule.
  *  Notes for the app in front sit first, under that app's icon, then a
  *  divider, then everything else. */
 function pillLayout(count: number, group: number) {
   const step = cssNum("--deck-pill-h") + cssNum("--deck-pill-gap");
-  const badge = group ? BADGE_H : 0;
   const divider = group && group < count ? DIVIDER_H : 0;
-  return { step, badge, divider, total: badge + count * step + divider };
+  return { step, divider, total: count * step + divider };
 }
 
 function layoutPills() {
   const all = tabs();
-  const { step, badge, divider, total } = pillLayout(all.length, appGroup);
+  const { step, divider, total } = pillLayout(all.length, appGroup);
   const top = column.offsetHeight / 2 - total / 2;
-  let y = top + badge;
+  const centres: number[] = [];
+  let y = top;
   all.forEach((t, i) => {
     if (i === appGroup && divider) {
       pillDivider.style.setProperty("--y", `${Math.round(y + divider / 2)}px`);
@@ -259,6 +282,7 @@ function layoutPills() {
     }
     const tabMid = topInColumn(t) + t.offsetHeight / 2;
     t.style.setProperty("--pill-dy", `${Math.round(y + step / 2 - tabMid)}px`);
+    centres.push(y + step / 2);
     y += step;
   });
   glass.style.setProperty("--y", `${Math.round(top - GLASS_PAD)}px`);
@@ -266,12 +290,7 @@ function layoutPills() {
   const show = (el: HTMLElement, on: boolean) => (el.style.display = on ? "" : "none");
   show(glass, all.length > 0);
   show(pillDivider, !!divider);
-  show(appBadge, appGroup > 0);
-  if (appGroup && frontApp) {
-    appBadge.style.setProperty("--y", `${Math.round(top + 3)}px`);
-    appBadge.title = `Notes for ${appName(frontApp)}`;
-    appBadge.replaceChildren(appIconEl(frontApp, 17));
-  }
+  layoutTags(centres);
 }
 
 /** Resting state is pills; the deck becomes tabs while the pointer is on it. */
@@ -300,7 +319,7 @@ function contentFor(n: Note): HTMLElement[] {
           missed.has(n.id) ? `Missed · ${clockLabel(missed.get(n.id)!)}` : "Reminder")]
       : []),
     ...(forFrontApp(n)
-      ? [h("div", { class: "peek-for" }, appIconEl(frontApp!, 14), `For ${appName(frontApp!)}`)]
+      ? [h("div", { class: "peek-for" }, appIconEl(frontApp!, 16), `For ${appName(frontApp!)}`)]
       : []),
     h("div", { class: "peek-title truncate" }, displayTitle(n.title, n.text)),
     body,
@@ -396,6 +415,9 @@ function pushNeighbours(open: HTMLElement | null, cardY = 0, cardH = 0) {
     i++;
     const shift = at < 0 || i === at ? 0 : i < at ? -up : down;
     t.style.setProperty("--shift", `${shift}px`);
+    const tag = tagFor(t);
+    tag?.style.setProperty("--shift", `${shift}px`);
+    tag?.classList.toggle("off", i === at); // the open card names the app itself
   }
   plus.style.setProperty("--shift", `${at < 0 ? 0 : down}px`);
   more.style.setProperty("--shift", `${at < 0 ? 0 : down}px`);
@@ -627,6 +649,7 @@ function pressTab(tab: HTMLElement, source: HTMLElement, down: PointerEvent) {
       clearTimeout(hoverTimer);
       resetCard();
       startTop = tab.getBoundingClientRect().top;
+      tagLayer.classList.add("off");
       slot = h("div", { class: "slot" });
       slot.style.height = `${tab.offsetHeight}px`;
       tab.replaceWith(slot);
@@ -654,6 +677,7 @@ function pressTab(tab: HTMLElement, source: HTMLElement, down: PointerEvent) {
     }
     tab.classList.remove("floating");
     tab.style.top = "";
+    tagLayer.classList.remove("off");
     slot!.replaceWith(tab);
     dragging = false;
     const ids = Array.from(stack.children).map((c) => (c as HTMLElement).dataset.id!).filter(Boolean);

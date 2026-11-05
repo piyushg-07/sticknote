@@ -15,8 +15,8 @@ interface EventMap {
   "note:shown": string;
   /** a reminder is due: its note should catch the eye */
   "reminder:fired": { id: string; title: string; due: number; missed: boolean };
-  /** the app in front changed (lower-case exe name) */
-  "context:app": string;
+  /** the app in front changed (lower-case exe name; null = no app in front) */
+  "context:app": string | null;
   /** the quick-capture card is being shown (payload: deck edge) */
   "capture:show": Edge;
 }

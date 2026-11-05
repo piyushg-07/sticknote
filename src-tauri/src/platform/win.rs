@@ -4,7 +4,7 @@
 //!  * atomic move+resize for the deck (no flicker when it grows from the edge)
 //!  * an event-driven fullscreen watcher (WinEvent hooks, zero polling)
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::OnceLock;
 use tauri::{AppHandle, WebviewWindow};
 use parking_lot::Mutex;
@@ -84,9 +84,9 @@ pub fn fullscreen_active() -> bool {
 /// Is `hwnd` a foreign window covering its whole (primary) monitor, or is the
 /// shell reporting presentation / D3D fullscreen mode?
 unsafe fn is_fullscreen(hwnd: HWND) -> bool {
-    // Shell-reported states: games, presentations, "busy" fullscreen apps.
+    // Shell-reported states: D3D fullscreen games, presentation mode.
     let mut quns = 0;
-    if SHQueryUserNotificationState(&mut quns) >= 0 && matches!(quns, 2 | 3 | 4) {
+    if SHQueryUserNotificationState(&mut quns) >= 0 && matches!(quns, 3 | 4) {
         return true;
     }
     if hwnd.is_null() || hwnd == GetDesktopWindow() || hwnd == GetShellWindow() {
@@ -104,6 +104,12 @@ unsafe fn is_fullscreen(hwnd: HWND) -> bool {
         return false;
     }
     if IsWindowVisible(hwnd) == 0 || IsIconic(hwnd) != 0 {
+        return false;
+    }
+    // A maximized window with a title bar is just maximized, not fullscreen
+    // (it covers the whole screen when the taskbar auto-hides).
+    let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
+    if IsZoomed(hwnd) != 0 && style & WS_CAPTION == WS_CAPTION {
         return false;
     }
     let mut r: RECT = std::mem::zeroed();
@@ -125,11 +131,20 @@ unsafe fn is_fullscreen(hwnd: HWND) -> bool {
 }
 
 // ---- foreground app (for notes bound to an app) -------------------------------
-/// Event sent to the webviews when the app in front changes (payload: exe name).
+//
+// Every relevant event (foreground change, minimize, restore) runs one
+// `refresh()` that re-reads the *current* state from the OS instead of trusting
+// the event, then a short "settle" re-check runs after the burst. Window
+// transitions (restore animations, taskbar clicks, Alt+Tab) briefly report a
+// null or in-between foreground window; the settle pass always lands on the
+// final state, so a missed or out-of-order event can't leave the deck stale.
+
+/// Event sent to the deck when the app in front changes (payload: exe name, or
+/// null when no app is in front: desktop shown, app minimized).
 pub const APP_EVENT: &str = "context:app";
 const RECENT_MAX: usize = 10;
-/// Transient system surfaces that shouldn't count as "the app in front".
-const IGNORED: &[&str] = &[
+/// Transient system surfaces: while one is in front, the previous app stays.
+const PASS_THROUGH_EXES: &[&str] = &[
     "searchhost.exe",
     "searchapp.exe",
     "startmenuexperiencehost.exe",
@@ -138,6 +153,19 @@ const IGNORED: &[&str] = &[
     "lockapp.exe",
     "applicationframehost.exe",
 ];
+/// Shell windows passed through the same way (taskbar, tray, task switcher).
+const PASS_THROUGH_CLASSES: &[&str] = &[
+    "Shell_TrayWnd",
+    "Shell_SecondaryTrayWnd",
+    "NotifyIconOverflowWindow",
+    "TopLevelWindowForOverflowXamlIsland",
+    "MultitaskingViewFrame",
+    "XamlExplorerHostIslandWindow",
+    "ForegroundStaging",
+    "TaskSwitcherWnd",
+];
+/// The desktop: no app in front.
+const DESKTOP_CLASSES: &[&str] = &["Progman", "WorkerW"];
 
 static CURRENT_APP: Mutex<Option<String>> = Mutex::new(None);
 /// Recently-in-front apps as (exe name, full path), most recent first.
@@ -158,37 +186,30 @@ pub(super) fn recent_app_paths() -> Vec<(String, String)> {
     RECENT_APPS.lock().clone()
 }
 
-/// (lower-case exe name, full path) of the process owning `hwnd`; None for
-/// Peekin itself and transient system surfaces.
-pub(super) unsafe fn exe_of(hwnd: HWND) -> Option<(String, String)> {
-    if hwnd.is_null() {
-        return None;
-    }
+/// What the foreground window means for the deck.
+enum Front {
+    /// a real app: (lower-case exe name, full path)
+    App(String, String),
+    /// no app in front (desktop shown, or the app was minimized)
+    Nothing,
+    /// a transient surface, Peekin itself, or a mid-switch state: keep
+    /// whatever was in front before
+    Keep,
+}
+
+unsafe fn class_of(hwnd: HWND) -> String {
+    let mut buf = [0u16; 64];
+    let n = GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+    String::from_utf16_lossy(&buf[..n.max(0) as usize])
+}
+
+unsafe fn pid_of(hwnd: HWND) -> u32 {
     let mut pid = 0u32;
     GetWindowThreadProcessId(hwnd, &mut pid);
-    if pid == 0 || pid == GetCurrentProcessId() {
-        return None;
-    }
-    exe_of_pid(pid)
+    pid
 }
 
-/// pid → (exe, path), so switching back to an app costs no process lookup.
-static PID_CACHE: Mutex<Vec<(u32, Option<(String, String)>)>> = Mutex::new(Vec::new());
-const PID_CACHE_MAX: usize = 64;
-
-unsafe fn exe_of_pid(pid: u32) -> Option<(String, String)> {
-    if let Some((_, hit)) = PID_CACHE.lock().iter().find(|(p, _)| *p == pid) {
-        return hit.clone();
-    }
-    let found = query_exe(pid);
-    let mut cache = PID_CACHE.lock();
-    if cache.len() >= PID_CACHE_MAX {
-        cache.remove(0);
-    }
-    cache.push((pid, found.clone()));
-    found
-}
-
+/// (lower-case exe name, full path) of a process.
 unsafe fn query_exe(pid: u32) -> Option<(String, String)> {
     let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
     if process.is_null() {
@@ -203,36 +224,138 @@ unsafe fn query_exe(pid: u32) -> Option<(String, String)> {
     }
     let path = String::from_utf16_lossy(&buf[..len as usize]);
     let name = std::path::Path::new(&path).file_name()?.to_string_lossy().to_ascii_lowercase();
-    (!IGNORED.contains(&name.as_str())).then_some((name, path))
+    Some((name, path))
 }
 
-/// Process of the window last seen in front; same process → nothing to do.
-static LAST_PID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+/// The last process resolved, so staying in (or returning to) the same app
+/// costs no process lookup. Only ever set from a successful lookup.
+static LAST_EXE: Mutex<Option<(u32, String, String)>> = Mutex::new(None);
 
-unsafe fn track_foreground(hwnd: HWND) {
-    // Fast path: switching between windows of the same app does no work.
-    let mut pid = 0u32;
-    GetWindowThreadProcessId(hwnd, &mut pid);
-    if pid == 0 || LAST_PID.swap(pid, Ordering::Relaxed) == pid {
-        return;
+unsafe fn exe_of_pid(pid: u32) -> Option<(String, String)> {
+    if let Some((p, n, path)) = LAST_EXE.lock().as_ref() {
+        if *p == pid {
+            return Some((n.clone(), path.clone()));
+        }
     }
-    let Some((exe, path)) = exe_of(hwnd) else { return };
+    let found = query_exe(pid)?;
+    *LAST_EXE.lock() = Some((pid, found.0.clone(), found.1.clone()));
+    Some(found)
+}
+
+/// Store apps (WhatsApp, Telegram…) live inside an ApplicationFrameHost frame;
+/// the real app is a child window owned by another process.
+unsafe fn hosted_app_pid(frame: HWND) -> u32 {
+    unsafe extern "system" fn find(child: HWND, lparam: isize) -> i32 {
+        let out = &mut *(lparam as *mut (u32, u32));
+        let pid = pid_of(child);
+        if pid != 0 && pid != out.0 {
+            out.1 = pid;
+            return 0; // found: stop
+        }
+        1
+    }
+    let mut state = (pid_of(frame), 0u32);
+    EnumChildWindows(frame, Some(find), &mut state as *mut (u32, u32) as isize);
+    state.1
+}
+
+unsafe fn classify(hwnd: HWND) -> Front {
+    if hwnd.is_null() || IsWindow(hwnd) == 0 {
+        return Front::Keep; // focus is mid-switch; the settle pass re-checks
+    }
+    if IsIconic(hwnd) != 0 {
+        return Front::Nothing; // the app in front was just minimized
+    }
+    let mut pid = pid_of(hwnd);
+    if pid == 0 || pid == GetCurrentProcessId() {
+        return Front::Keep; // Peekin's own note / capture windows
+    }
+    let class = class_of(hwnd);
+    if DESKTOP_CLASSES.contains(&class.as_str()) {
+        return Front::Nothing;
+    }
+    if PASS_THROUGH_CLASSES.contains(&class.as_str()) {
+        return Front::Keep;
+    }
+    if class == "ApplicationFrameWindow" {
+        match hosted_app_pid(hwnd) {
+            0 => return Front::Keep, // still starting up; the settle pass re-checks
+            p => pid = p,
+        }
+    }
+    match exe_of_pid(pid) {
+        Some((exe, _)) if PASS_THROUGH_EXES.contains(&exe.as_str()) => Front::Keep,
+        Some((exe, path)) => Front::App(exe, path),
+        None => Front::Keep, // a protected process we can't inspect
+    }
+}
+
+fn set_front(app: Option<(String, String)>) {
+    let exe = app.as_ref().map(|(e, _)| e.clone());
     {
         let mut cur = CURRENT_APP.lock();
-        if cur.as_deref() == Some(exe.as_str()) {
+        if *cur == exe {
             return;
         }
-        *cur = Some(exe.clone());
+        *cur = exe.clone();
     }
-    {
+    if let Some((name, path)) = app {
         let mut recent = RECENT_APPS.lock();
-        recent.retain(|(a, _)| a != &exe);
-        recent.insert(0, (exe.clone(), path));
+        recent.retain(|(a, _)| a != &name);
+        recent.insert(0, (name, path));
         recent.truncate(RECENT_MAX);
     }
     // Straight to the deck (the only window that reacts), no broadcast.
     if let Some(app) = APP.get() {
         let _ = app.emit_to(crate::windows::deck::LABEL, APP_EVENT, exe);
+    }
+}
+
+/// Re-read the foreground state from the OS and apply it.
+unsafe fn refresh() {
+    let fg = GetForegroundWindow();
+    match classify(fg) {
+        Front::App(exe, path) => set_front(Some((exe, path))),
+        Front::Nothing => set_front(None),
+        Front::Keep => {}
+    }
+    refresh_fullscreen(fg);
+}
+
+unsafe fn refresh_fullscreen(fg: HWND) {
+    let now = is_fullscreen(fg);
+    if FULLSCREEN.swap(now, Ordering::Relaxed) != now {
+        if let Some(app) = APP.get() {
+            crate::windows::deck::refresh_visibility(app);
+        }
+    }
+}
+
+// Settle pass: re-check shortly after a burst of events, then once more after
+// window animations (restore / maximize take ~250 ms) have finished. Timers,
+// hooks and refresh() all run on the watcher thread, one at a time.
+const SETTLE_MS: [u32; 2] = [90, 450];
+static SETTLE_TIMER: AtomicUsize = AtomicUsize::new(0);
+static SETTLE_STEP: AtomicUsize = AtomicUsize::new(0);
+
+unsafe fn schedule_settle() {
+    let old = SETTLE_TIMER.swap(0, Ordering::Relaxed);
+    if old != 0 {
+        KillTimer(std::ptr::null_mut(), old);
+    }
+    SETTLE_STEP.store(0, Ordering::Relaxed);
+    let id = SetTimer(std::ptr::null_mut(), 0, SETTLE_MS[0], Some(on_settle));
+    SETTLE_TIMER.store(id, Ordering::Relaxed);
+}
+
+unsafe extern "system" fn on_settle(_hwnd: HWND, _msg: u32, id: usize, _time: u32) {
+    KillTimer(std::ptr::null_mut(), id);
+    SETTLE_TIMER.store(0, Ordering::Relaxed);
+    refresh();
+    let next = SETTLE_STEP.fetch_add(1, Ordering::Relaxed) + 1;
+    if let Some(&ms) = SETTLE_MS.get(next) {
+        let id = SetTimer(std::ptr::null_mut(), 0, ms, Some(on_settle));
+        SETTLE_TIMER.store(id, Ordering::Relaxed);
     }
 }
 
@@ -245,21 +368,16 @@ unsafe extern "system" fn on_win_event(
     _thread: u32,
     _time: u32,
 ) {
-    if event == EVENT_OBJECT_LOCATIONCHANGE
-        && (id_object != OBJID_WINDOW || id_child != 0 || hwnd != GetForegroundWindow())
-    {
+    if event == EVENT_OBJECT_LOCATIONCHANGE {
+        // The window in front moved or resized: only fullscreen can change.
+        if id_object == OBJID_WINDOW && id_child == 0 && hwnd == GetForegroundWindow() {
+            refresh_fullscreen(hwnd);
+        }
         return;
     }
-    let fg = GetForegroundWindow();
-    if event == EVENT_SYSTEM_FOREGROUND {
-        track_foreground(fg);
-    }
-    let now = is_fullscreen(fg);
-    if FULLSCREEN.swap(now, Ordering::Relaxed) != now {
-        if let Some(app) = APP.get() {
-            crate::windows::deck::refresh_visibility(app);
-        }
-    }
+    // Focus moved, or a window was minimized / restored.
+    refresh();
+    schedule_settle();
 }
 
 /// Install out-of-context WinEvent hooks on a dedicated message-loop thread.
@@ -275,6 +393,7 @@ unsafe extern "system" fn power_wndproc(hwnd: HWND, msg: u32, wparam: usize, lpa
         if let Some(app) = APP.get() {
             crate::reminders::poke(app); // re-check: fire anything that came due while asleep
         }
+        schedule_settle(); // the app in front may have changed while asleep
     }
     DefWindowProcW(hwnd, msg, wparam, lparam)
 }
@@ -312,12 +431,21 @@ pub fn start_fullscreen_watcher(app: AppHandle) {
     std::thread::Builder::new()
         .name("fullscreen-watch".into())
         .spawn(|| unsafe {
-            track_foreground(GetForegroundWindow()); // know the app in front from the start
+            refresh(); // know the app in front from the start
             create_power_listener(); // wake from sleep / clock change → reminders re-check
             let flags = WINEVENT_OUTOFCONTEXT;
             SetWinEventHook(
                 EVENT_SYSTEM_FOREGROUND,
                 EVENT_SYSTEM_FOREGROUND,
+                std::ptr::null_mut(),
+                Some(on_win_event),
+                0,
+                0,
+                flags,
+            );
+            SetWinEventHook(
+                EVENT_SYSTEM_MINIMIZESTART,
+                EVENT_SYSTEM_MINIMIZEEND,
                 std::ptr::null_mut(),
                 Some(on_win_event),
                 0,

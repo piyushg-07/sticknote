@@ -24,33 +24,41 @@ function glyphColor(hex: string): string {
   return 0.299 * r + 0.587 * g + 0.114 * b > 186 ? "#111111" : "#ffffff";
 }
 
-/** An app's icon, best available:
- *  1. its real icon (installed on this PC)
- *  2. its full-colour logo on a white tile
+/** An app's icon, best available (crisp vector logos win over bitmaps):
+ *  1. its full-colour logo on a white tile
+ *  2. its real icon (read from the PC, when installed)
  *  3. its one-colour logo on a brand-colour tile
  *  4. its initial on a brand-colour tile */
 export function appIconEl(exe: string, size = 20): HTMLElement {
+  const logo = appLogo(exe);
+  const color = appColor(exe);
+  const tile = () => {
+    const t = h("span", { class: "app-ico app-tile", "aria-hidden": "true" });
+    t.style.width = t.style.height = `${size}px`;
+    return t;
+  };
+  if (logo && !logo.mono) {
+    const t = tile();
+    t.innerHTML = logo.svg; // static, bundled SVG (generated), not user data
+    t.classList.add("full");
+    t.style.background = "#ffffff";
+    return t;
+  }
   const src = appIcon(exe);
   if (src) {
     return h("img", { class: "app-ico", src, alt: "", width: size, height: size, draggable: "false" });
   }
-  const color = appColor(exe);
-  const tile = h("span", { class: "app-ico app-tile", "aria-hidden": "true" });
-  tile.style.width = tile.style.height = `${size}px`;
-  const logo = appLogo(exe);
+  const t = tile();
+  t.style.background = color;
+  t.style.color = glyphColor(color);
   if (logo) {
-    // Static, bundled SVG (generated from the logo packages), not user data.
-    tile.innerHTML = logo.svg;
-    tile.classList.add(logo.mono ? "mono" : "full");
-    tile.style.background = logo.mono ? color : "#ffffff";
-    tile.style.color = logo.mono ? glyphColor(color) : "";
+    t.innerHTML = logo.svg;
+    t.classList.add("mono");
   } else {
-    tile.textContent = appName(exe).charAt(0).toUpperCase();
-    tile.style.background = color;
-    tile.style.color = glyphColor(color);
-    tile.style.fontSize = `${Math.round(size * 0.5)}px`;
+    t.textContent = appName(exe).charAt(0).toUpperCase();
+    t.style.fontSize = `${Math.round(size * 0.5)}px`;
   }
-  return tile;
+  return t;
 }
 
 /** A small row of overlapping app icons (for chips, rows, the picker footer). */

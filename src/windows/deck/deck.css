@@ -14,7 +14,7 @@
   --deck-pill-w: 7px;
   --deck-pill-h: 24px;
   --deck-pill-gap: 8px; /* vertical space between pills */
-  --deck-pill-inset: 6px; /* distance of the pills from the screen edge */
+  --deck-pill-inset: 8px; /* distance of the pills from the screen edge */
   --deck-peek-w: 280px; /* visible width of an open tab */
   --deck-peek-min-h: 190px;
   --deck-peek-max-h: 300px;
@@ -738,3 +738,151 @@ body {
 .peek-alert.missed {
   background: #b7791f;
 }
+
+/* ==========================================================================
+   Pill mode: glass capsule, and notes for the app in front
+   ========================================================================== */
+:root {
+  --glass-w: calc(var(--deck-pill-w) + 14px);
+  /* horizontal centre of the pills, measured from the screen edge */
+  --pill-x: calc(var(--deck-pill-inset) + var(--deck-pill-w) / 2);
+}
+
+.pill-glass,
+.pill-app,
+.pill-divider {
+  position: absolute;
+  top: var(--y, 0px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out), top var(--deck-anim) var(--deck-ease),
+    height var(--deck-anim) var(--deck-ease);
+}
+.deck.compact .pill-glass,
+.deck.compact .pill-app,
+.deck.compact .pill-divider {
+  opacity: 1;
+}
+.deck.instant .pill-glass,
+.deck.instant .pill-app,
+.deck.instant .pill-divider {
+  transition: none;
+}
+
+/* A long, rounded glass capsule behind the pills. (A transparent window
+   can't blur the desktop, so the glass is built from a translucent fill,
+   a bright rim and a soft shadow.) */
+.pill-glass {
+  z-index: -1; /* behind the pills (the column is its own stacking context) */
+  width: var(--glass-w);
+  height: var(--h, 0px);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.34));
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+:root[data-theme="dark"] .pill-glass {
+  background: linear-gradient(180deg, rgba(40, 40, 46, 0.72), rgba(20, 20, 24, 0.5));
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.deck[data-edge="right"] .pill-glass {
+  right: calc(var(--pill-x) - var(--glass-w) / 2);
+}
+.deck[data-edge="left"] .pill-glass {
+  left: calc(var(--pill-x) - var(--glass-w) / 2);
+}
+
+/* Icon of the app in front, heading the pills of its notes. */
+.pill-app {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+}
+.pill-app .app-ico {
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.deck[data-edge="right"] .pill-app {
+  right: calc(var(--pill-x) - 8.5px);
+}
+.deck[data-edge="left"] .pill-app {
+  left: calc(var(--pill-x) - 8.5px);
+}
+
+/* Hairline between the app's notes and everything else. */
+.pill-divider {
+  width: 9px;
+  height: 1.5px;
+  margin-top: -0.75px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.22);
+}
+:root[data-theme="dark"] .pill-divider {
+  background: rgba(255, 255, 255, 0.25);
+}
+.deck[data-edge="right"] .pill-divider {
+  right: calc(var(--pill-x) - 4.5px);
+}
+.deck[data-edge="left"] .pill-divider {
+  left: calc(var(--pill-x) - 4.5px);
+}
+
+
+/* Tab mode: notes for the app in front carry the app's icon at the top. */
+.tab-app {
+  position: absolute;
+  top: 7px;
+  z-index: 1;
+  display: grid;
+  pointer-events: none;
+  transition: opacity 160ms;
+}
+.tab-app .app-ico {
+  border-radius: 5px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.deck[data-edge="right"] .tab-app {
+  left: calc((var(--deck-tab-w) - 16px) / 2);
+}
+.deck[data-edge="left"] .tab-app {
+  left: calc(var(--deck-overhang) + (var(--deck-tab-w) - 16px) / 2);
+}
+.tab.for-app .tab-strip {
+  padding-top: 20px;
+}
+.tab.for-app .tab-label {
+  max-height: calc(var(--tab-h, 76px) - 40px);
+}
+.tab.for-app .tab-alert {
+  top: 26px;
+}
+.deck.compact .tab-app {
+  opacity: 0;
+}
+.tab.open .tab-app {
+  opacity: 0;
+}
+
+/* Card: "For VS Code" label. */
+.peek-for {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-2);
+  padding: 3px 9px 3px 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.07);
+  color: var(--note-ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.peek-for .app-ico {
+  border-radius: 4px;
+}
+.card.open .card-content > :nth-child(5) { transition-delay: 270ms; }

@@ -169,6 +169,27 @@ pub(super) unsafe fn exe_of(hwnd: HWND) -> Option<(String, String)> {
     if pid == 0 || pid == GetCurrentProcessId() {
         return None;
     }
+    exe_of_pid(pid)
+}
+
+/// pid → (exe, path), so switching back to an app costs no process lookup.
+static PID_CACHE: Mutex<Vec<(u32, Option<(String, String)>)>> = Mutex::new(Vec::new());
+const PID_CACHE_MAX: usize = 64;
+
+unsafe fn exe_of_pid(pid: u32) -> Option<(String, String)> {
+    if let Some((_, hit)) = PID_CACHE.lock().iter().find(|(p, _)| *p == pid) {
+        return hit.clone();
+    }
+    let found = query_exe(pid);
+    let mut cache = PID_CACHE.lock();
+    if cache.len() >= PID_CACHE_MAX {
+        cache.remove(0);
+    }
+    cache.push((pid, found.clone()));
+    found
+}
+
+unsafe fn query_exe(pid: u32) -> Option<(String, String)> {
     let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
     if process.is_null() {
         return None;
@@ -185,7 +206,16 @@ pub(super) unsafe fn exe_of(hwnd: HWND) -> Option<(String, String)> {
     (!IGNORED.contains(&name.as_str())).then_some((name, path))
 }
 
+/// Process of the window last seen in front; same process → nothing to do.
+static LAST_PID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
 unsafe fn track_foreground(hwnd: HWND) {
+    // Fast path: switching between windows of the same app does no work.
+    let mut pid = 0u32;
+    GetWindowThreadProcessId(hwnd, &mut pid);
+    if pid == 0 || LAST_PID.swap(pid, Ordering::Relaxed) == pid {
+        return;
+    }
     let Some((exe, path)) = exe_of(hwnd) else { return };
     {
         let mut cur = CURRENT_APP.lock();
@@ -200,8 +230,9 @@ unsafe fn track_foreground(hwnd: HWND) {
         recent.insert(0, (exe.clone(), path));
         recent.truncate(RECENT_MAX);
     }
+    // Straight to the deck (the only window that reacts), no broadcast.
     if let Some(app) = APP.get() {
-        let _ = app.emit(APP_EVENT, exe);
+        let _ = app.emit_to(crate::windows::deck::LABEL, APP_EVENT, exe);
     }
 }
 

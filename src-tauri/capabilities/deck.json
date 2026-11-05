@@ -17,6 +17,7 @@
     "allow-undo-delete",
     "allow-get-settings",
     "allow-open-capture",
-    "allow-context-apps"
+    "allow-context-apps",
+    "allow-app-icons"
   ]
 }

@@ -329,10 +329,12 @@ export function appLogo(exe: string): Logo | null {
 const icons = new Map<string, string | null>();
 let pending: Promise<void> | null = null;
 
-/** Load real icons for every catalog app (plus any extra exes). Cached. */
-export function loadIcons(extra: string[] = []): Promise<void> {
+/** Load real icons (and logos) for every catalog app plus `extra`, or only
+ *  for `extra` when `all` is false. Cached. */
+export function loadIcons(extra: string[] = [], all = true): Promise<void> {
   void loadLogos();
-  const missing = [...new Set([...BY_EXE.keys(), ...extra.map((e) => e.toLowerCase())])].filter((e) => !icons.has(e));
+  const wanted = [...(all ? BY_EXE.keys() : []), ...extra.map((e) => e.toLowerCase())];
+  const missing = [...new Set(wanted)].filter((e) => !icons.has(e));
   if (!missing.length) return pending ?? Promise.resolve();
   for (const e of missing) icons.set(e, null); // mark as requested
   const run = api.appIcons(missing).then((pairs) => {

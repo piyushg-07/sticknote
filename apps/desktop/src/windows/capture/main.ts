@@ -15,15 +15,16 @@ import { initTooltips } from "../../components/tooltip";
 initTooltips();
 
 const win = getCurrentWindow();
-const LEAVE_MS = 160;
-const SAVED_MS = 280;
+const LEAVE_MS = 160; // --animate-cap-out in styles/tw/capture.css
+const SAVED_MS = 280; // --animate-cap-saved
 
 let color = 3; // Butter until the user picks another; remembered between uses
 let busy = false;
 let shown = false;
 
 const text = h("textarea", {
-  class: "cap-text",
+  class:
+    "m-0 min-h-0 flex-1 resize-none border-0 bg-transparent px-[18px] py-1.5 font-hand text-note-body leading-[1.4] text-note-ink caret-note-ink outline-0 placeholder:text-note-ink-muted [&::-webkit-scrollbar-thumb]:bg-note-ink-faint",
   placeholder: "What's on your mind?",
   spellcheck: "true",
   maxlength: 20000,
@@ -34,18 +35,46 @@ const picker = swatches((c) => {
   paintColor();
   text.focus();
 });
-const openBtn = h("button", { class: "cap-open", title: "Save and open as a full note" }, "Open as note", icon("external", 13));
+/** Keyboard hint keys, restyled for note paper. */
+const capKbd =
+  "inline-flex h-[18px] items-center whitespace-nowrap rounded-sm border border-note-ink-faint bg-white/45 px-[5px] font-ui text-2xs text-note-ink";
+const openBtn = h("button", {
+  class:
+    "inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-sm px-2.5 font-ui text-sm text-note-ink transition-[background-color] duration-[120ms] hover:bg-black/7",
+  title: "Save and open as a full note" }, "Open as note", icon("external", 13));
 const card = h(
   "div",
-  { class: "cap" },
-  h("div", { class: "cap-head" }, h("span", { class: "cap-title" }, "Quick note"), picker.el),
+  {
+    // data-on-note: components inside (swatches, app stacks) restyle for note paper.
+    "data-on-note": true,
+    // Invisible until data-anim="enter" (tw/capture.css); leave / saved play
+    // their exit from the hidden base, as before.
+    class:
+      "flex h-full flex-col rounded-[18px] bg-note text-note-ink opacity-0 shadow-[0_10px_28px_rgb(0_0_0/0.28),0_1px_3px_rgb(0_0_0/0.14)] transition-[background-color] duration-200 ease-in-out data-[anim=enter]:animate-cap-in data-[anim=enter]:opacity-100 data-[anim=leave]:animate-cap-out data-[anim=leave]:opacity-100 data-[anim=saved]:animate-cap-saved data-[anim=saved]:opacity-100",
+  },
+  h(
+    "div",
+    {
+      // small swatches, selected one ringed in ink
+      class:
+        "flex items-center gap-2 pt-[14px] pr-4 pb-1 pl-[18px] [&_[role=radiogroup]]:gap-1 [&_[role=radio]]:size-3.5 [&_[role=radio][aria-checked=true]]:shadow-[inset_0_0_0_2px_var(--color-note-ink)]",
+    },
+    h("span", { class: "flex-1 font-ui text-xs font-semibold uppercase tracking-caps text-note-ink-muted" }, "Quick note"),
+    picker.el,
+  ),
   text,
-  h("div", { class: "cap-foot" },
-    h("span", { class: "cap-hint" }, h("kbd", null, "Enter"), " save   ", h("kbd", null, "Esc"), " close"),
+  h("div", { class: "flex items-center gap-2 pt-1 pr-2.5 pb-2.5 pl-[18px]" },
+    h(
+      "span",
+      { class: "min-w-0 flex-1 truncate font-ui text-xs text-note-ink-muted" },
+      h("kbd", { class: capKbd }, "Enter"),
+      " save   ",
+      h("kbd", { class: capKbd }, "Esc"),
+      " close",
+    ),
     openBtn,
   ),
 );
-card.classList.add("on-note");
 document.getElementById("app")!.append(card);
 
 function paintColor() {
@@ -53,10 +82,10 @@ function paintColor() {
   picker.set(color);
 }
 
-function play(cls: "enter" | "leave" | "saved") {
-  card.classList.remove("enter", "leave", "saved");
+function play(anim: "enter" | "leave" | "saved") {
+  delete card.dataset.anim;
   void card.offsetWidth; // restart the animation
-  card.classList.add(cls);
+  card.dataset.anim = anim;
 }
 
 async function hide(how: "leave" | "saved") {

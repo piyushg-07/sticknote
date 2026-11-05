@@ -68,7 +68,7 @@ const NS = "http://www.w3.org/2000/svg";
 export function icon(name: IconName, size = 16): SVGSVGElement {
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("class", "icon");
+  svg.setAttribute("class", "icon shrink-0 fill-none stroke-current stroke-[1.6] [stroke-linecap:round] [stroke-linejoin:round]");
   svg.setAttribute("aria-hidden", "true");
   svg.style.width = `${size}px`;
   svg.style.height = `${size}px`;

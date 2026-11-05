@@ -8,22 +8,29 @@ import { swatches } from "../../components/swatches";
 import { appChip, reminderChip } from "../../components/note-meta";
 import { noteById, state, subscribe, update } from "./state";
 import { actions, hooks } from "./actions";
+import { caps, cx, iconBtn, iconBtnDanger } from "../../lib/ui";
+
+// Header chips sit on the page, not on note paper (components/note-meta onPage).
+const PAGE_CHIPS = "ml-2 flex items-center gap-1";
+const EMPTY_TITLE = "mb-1 text-md font-semibold text-fg";
 
 export function detailPane() {
   // ---- header -----------------------------------------------------------
-  const dot = h("span", { class: "status-dot" });
-  const status = h("span", { class: "status t-caps" });
-  const openBtn = h("button", { class: "icon-btn", title: "Open in its own window (Ctrl+E)", "aria-label": "Open in window" }, icon("external"));
-  const doneBtn = h("button", { class: "icon-btn" });
-  const deckBtn = h("button", { class: "icon-btn" });
-  const delBtn = h("button", { class: "icon-btn danger", title: "Delete (Ctrl+Backspace)", "aria-label": "Delete" }, icon("trash"));
+  const dot = h("span", { class: "size-2 rounded-full bg-note-strong data-muted:bg-fg-faint" });
+  const status = h("span", { class: caps });
+  const openBtn = h("button", { class: iconBtn, title: "Open in its own window (Ctrl+E)", "aria-label": "Open in window" }, icon("external"));
+  const doneBtn = h("button", { class: iconBtn });
+  const deckBtn = h("button", { class: iconBtn });
+  const delBtn = h("button", { class: cx(iconBtn, iconBtnDanger), title: "Delete (Ctrl+Backspace)", "aria-label": "Delete" }, icon("trash"));
   const remind = reminderChip({
+    onPage: true,
     onSet: (at, repeat) => {
       const id = state.selectedId;
       if (id) void api.setReminder(id, at, repeat);
     },
   });
   const appTie = appChip({
+    onPage: true,
     onSet: (apps) => {
       const id = state.selectedId;
       if (id) void api.setNoteApps(id, apps);
@@ -31,11 +38,11 @@ export function detailPane() {
   });
   const head = h(
     "div",
-    { class: "detail-head" },
+    { class: "mb-3 flex min-h-10 items-center gap-2" },
     dot,
     status,
-    h("div", { class: "detail-chips" }, remind.el, appTie.el),
-    h("div", { class: "grow" }),
+    h("div", { class: PAGE_CHIPS }, remind.el, appTie.el),
+    h("div", { class: "flex-1" }),
     openBtn,
     doneBtn,
     deckBtn,
@@ -43,10 +50,16 @@ export function detailPane() {
   );
 
   // ---- card ---------------------------------------------------------------
-  const title = h("input", { class: "card-title", placeholder: "Title", maxlength: 200, spellcheck: "false", "aria-label": "Note title" });
-  const edited = h("span", { class: "card-edited" });
-  const bodyEl = h("div", { class: "card-body" });
-  const dates = h("span", { class: "card-dates" });
+  const title = h("input", {
+    class:
+      "min-w-0 flex-1 border-0 bg-transparent p-0 font-display text-3xl font-bold tracking-[-0.015em] text-note-ink placeholder:text-note-ink-muted",
+    placeholder: "Title", maxlength: 200, spellcheck: "false", "aria-label": "Note title" });
+  const edited = h("span", { class: "whitespace-nowrap text-xs text-note-ink-muted" });
+  const bodyEl = h("div", {
+    class:
+      "min-h-0 flex-1 overflow-y-auto pt-1 pb-4 text-[length:calc(var(--text-note-body)*var(--note-font-scale,1))] leading-[1.45] [&::-webkit-scrollbar-thumb]:bg-note-ink-faint",
+  });
+  const dates = h("span", { class: "min-w-0 flex-1 truncate text-xs text-note-ink-muted" });
   const picker = swatches((c) => {
     const id = state.selectedId;
     if (!id) return;
@@ -56,22 +69,30 @@ export function detailPane() {
   });
   const card = h(
     "article",
-    { class: "detail-card on-note" },
-    h("div", { class: "card-head" }, title, edited),
+    {
+      // data-on-note: components inside (swatches, app stacks) restyle for note paper.
+      "data-on-note": true,
+      class:
+        "flex min-h-0 flex-1 flex-col rounded-[20px] bg-note px-8 pt-6 pb-3 text-note-ink shadow-md transition-[background-color] duration-200 ease-in-out",
+    },
+    h("div", { class: "mb-2 flex items-baseline gap-3" }, title, edited),
     bodyEl,
-    h("div", { class: "card-rule" }),
-    h("div", { class: "card-foot" }, dates, picker.el),
+    h("div", { class: "h-px bg-note-ink-faint" }),
+    h("div", { class: "flex h-12 items-center gap-3" }, dates, picker.el),
   );
 
   const empty = h(
     "div",
-    { class: "detail-empty" },
-    h("div", { class: "empty-icon" }, icon("note", 26)),
-    h("div", { class: "empty-title" }, "Nothing selected"),
-    h("div", { class: "t-muted" }, "Pick a note on the left to read or edit it."),
+    {
+      class:
+        "flex flex-1 flex-col items-center justify-center gap-1 rounded-[20px] border-[1.5px] border-dashed border-line pb-[60px] text-center text-sm",
+    },
+    h("div", { class: "mb-2 grid size-14 place-items-center rounded-xl bg-accent-soft text-accent-text" }, icon("note", 26)),
+    h("div", { class: EMPTY_TITLE }, "Nothing selected"),
+    h("div", { class: "text-fg-muted" }, "Pick a note on the left to read or edit it."),
   );
 
-  const el = h("section", { class: "detail" }, head, card, empty);
+  const el = h("section", { class: "flex min-w-0 flex-1 flex-col" }, head, card, empty);
 
   // ---- editing --------------------------------------------------------------
   let currentId: string | null = null;
@@ -122,7 +143,7 @@ export function detailPane() {
     card.dataset.color = String(n.color);
     card.dataset.font = n.font;
     dot.dataset.color = String(n.color);
-    dot.classList.toggle("muted", archived || !n.onDeck);
+    dot.toggleAttribute("data-muted", archived || !n.onDeck);
     status.textContent = archived ? "Archived" : n.onDeck ? "Active · On the deck" : "Active · Off the deck";
     doneBtn.replaceChildren(icon(archived ? "restore" : "check"));
     doneBtn.title = archived ? "Restore to the deck" : "Mark complete (archive)";

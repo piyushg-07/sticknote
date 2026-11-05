@@ -19,7 +19,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     if app.get_webview_window(LABEL).is_some() {
         return Ok(());
     }
-    let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("deck.html".into()))
+    let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
         .title("Peekin deck")
         .transparent(true)
         .decorations(false)

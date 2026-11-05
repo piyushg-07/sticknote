@@ -20,7 +20,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     if app.get_webview_window(LABEL).is_some() {
         return Ok(());
     }
-    let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("capture.html".into()))
+    let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
         .title("Peekin quick note")
         .transparent(true)
         .decorations(false)

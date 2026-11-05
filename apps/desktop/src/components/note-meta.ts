@@ -9,23 +9,42 @@ import { appStack, appsLabel, showAppPicker } from "./app-picker";
 import { reminderChipLabel } from "../lib/time";
 import { showReminderPicker } from "./reminder-picker";
 import type { Note, Repeat } from "../lib/types";
+import { cx } from "../lib/ui";
+
+// Empty chips (data-empty) are just a quiet icon; set chips read as a small
+// labelled pill. On note paper they take the note's ink; `onPage` chips sit on
+// the window (the All notes detail header) and use theme colours.
+const CHIP =
+  "group/chip inline-flex h-[26px] max-w-[150px] items-center gap-[5px] whitespace-nowrap rounded-full pr-[9px] pl-2 font-ui text-xs font-semibold transition-[background-color,opacity] duration-[120ms] data-empty:w-7 data-empty:justify-center data-empty:p-0 [&_.icon]:stroke-2";
+const ON_NOTE =
+  "bg-black/7 text-note-ink hover:bg-black/12 data-empty:bg-transparent data-empty:opacity-60 data-empty:hover:bg-black/7 data-empty:hover:opacity-100";
+const ON_PAGE =
+  "bg-surface-2 text-fg-muted hover:bg-surface-active hover:text-fg data-empty:bg-transparent data-empty:text-fg-faint data-empty:hover:bg-surface-hover data-empty:hover:text-fg";
+const LABEL = "overflow-hidden text-ellipsis group-data-empty/chip:hidden";
+
+interface ChipOptions {
+  /** the note window: menus and pickers open dark */
+  dark?: boolean;
+  /** on the window background rather than note paper: theme colours */
+  onPage?: boolean;
+}
 
 interface ChipParts {
   el: HTMLButtonElement;
   label: HTMLSpanElement;
 }
 
-function chip(ic: IconName, title: string): ChipParts {
-  const label = h("span", { class: "meta-label" });
-  const el = h("button", { class: "meta-chip empty", title, "aria-label": title }, icon(ic, 14), label);
+function chip(ic: IconName, title: string, onPage?: boolean): ChipParts {
+  const label = h("span", { class: LABEL });
+  const el = h("button", { class: cx(CHIP, onPage ? ON_PAGE : ON_NOTE), "data-empty": true, title, "aria-label": title }, icon(ic, 14), label);
   return { el, label };
 }
 
 // ---- reminder ---------------------------------------------------------------------
 
 /** Bell chip: opens the reminder panel (quick picks, calendar, time, repeat). */
-export function reminderChip(opts: { dark?: boolean; onSet: (at: number | null, repeat: Repeat | null) => void }) {
-  const { el, label } = chip("bell", "Remind me");
+export function reminderChip(opts: ChipOptions & { onSet: (at: number | null, repeat: Repeat | null) => void }) {
+  const { el, label } = chip("bell", "Remind me", opts.onPage);
   let value: { at?: number; repeat?: Repeat } = {};
 
   el.addEventListener("click", () => showReminderPicker(el, value, opts.onSet, { dark: opts.dark }));
@@ -33,8 +52,8 @@ export function reminderChip(opts: { dark?: boolean; onSet: (at: number | null, 
   const set = (note: Note) => {
     value = { at: note.remindAt, repeat: note.repeat };
     const on = !!note.remindAt;
-    el.classList.toggle("empty", !on);
-    el.classList.toggle("repeating", !!note.repeat);
+    el.toggleAttribute("data-empty", !on);
+    el.toggleAttribute("data-repeating", !!note.repeat);
     label.textContent = on ? reminderChipLabel(note.remindAt!, note.repeat) : "";
     el.title = on ? `Reminder: ${reminderChipLabel(note.remindAt!, note.repeat)}` : "Remind me";
   };
@@ -44,10 +63,10 @@ export function reminderChip(opts: { dark?: boolean; onSet: (at: number | null, 
 // ---- apps -----------------------------------------------------------------------------
 
 /** App chip: overlapping icons + "VS Code +2"; opens the app picker. */
-export function appChip(opts: { dark?: boolean; onSet: (apps: string[]) => void }) {
-  const label = h("span", { class: "meta-label" });
-  const glyph = h("span", { class: "meta-glyph" }, icon("appWindow", 14));
-  const el = h("button", { class: "meta-chip empty" }, glyph, label);
+export function appChip(opts: ChipOptions & { onSet: (apps: string[]) => void }) {
+  const label = h("span", { class: LABEL });
+  const glyph = h("span", { class: "inline-grid place-items-center" }, icon("appWindow", 14));
+  const el = h("button", { class: cx(CHIP, opts.onPage ? ON_PAGE : ON_NOTE), "data-empty": true }, glyph, label);
   let current: string[] = [];
 
   el.addEventListener("click", () =>
@@ -65,9 +84,9 @@ export function appChip(opts: { dark?: boolean; onSet: (apps: string[]) => void 
 
   function paint() {
     const any = current.length > 0;
-    el.classList.toggle("empty", !any);
+    el.toggleAttribute("data-empty", !any);
     label.textContent = appsLabel(current);
-    glyph.replaceChildren(any ? appStack(current, 15, 3) : icon("appWindow", 14));
+    glyph.replaceChildren(any ? appStack(current, 15, 3, "note") : icon("appWindow", 14));
     const title = any
       ? `Shown only while using ${current.map(appName).join(", ")}`
       : "Show on the deck with every app";

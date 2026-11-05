@@ -21,12 +21,14 @@ import { checklistProgress } from "../../lib/progress";
 import { appName, loadIcons } from "../../lib/apps";
 import { appIconEl } from "../../components/app-picker";
 import type { Edge, Note } from "../../lib/types";
+import { cx } from "../../lib/ui";
+import * as C from "./classes";
 
 const SWITCH_DELAY = 50; // tiny dwell when sweeping across tabs (prevents flicker)
 const LEAVE_DELAY = 650; // how long the deck waits before turning back into pills
 const SLACK = 28; // px of forgiveness around the deck before it counts as "left"
-const ANIM_MS = 380; // must match --deck-anim in deck.css
-const CLOSE_MS = 200; // must match .card-wrap.leaving in deck.css
+const ANIM_MS = 380; // must match --deck-anim on <html> in deck.html
+const CLOSE_MS = 200; // must match the data-leaving opacity duration (CARD_WRAP in classes.ts)
 /** How the pushed-aside tabs meet the open card: negative = they tuck a few
  *  px under its edge (as in Peeky Notes), so there is no visible gap. */
 const GAP = -6;
@@ -36,22 +38,28 @@ const REMINDER_PEEK_MS = 8000; // how long a fired reminder keeps its card out
 
 // ---- DOM -------------------------------------------------------------------
 const root = document.getElementById("deck")!;
-const stack = h("div", { class: "stack" });
-const plus = h("button", { class: "plus", title: "New note (Ctrl+Alt+N)", "aria-label": "New note" }, icon("plus", 14));
-const more = h("button", { class: "more", title: "Show all notes" });
-const glass = h("div", { class: "pill-glass", "aria-hidden": "true" });
-const pillDivider = h("div", { class: "pill-divider", "aria-hidden": "true" });
-/** App stickers beside notes for the app in front (own layer: tabs clip). */
-const tagLayer = h("div", { class: "app-tags", "aria-hidden": "true" });
-const column = h("div", { class: "column" }, glass, pillDivider, stack, tagLayer, plus);
+/** Set or clear a boolean `data-*` state attribute (styled via data-* variants). */
+const flag = (el: Element, name: string, on = true) => el.toggleAttribute(`data-${name}`, on);
+const has = (el: Element, name: string) => el.hasAttribute(`data-${name}`);
 
-const cardLabel = h("span", { class: "tab-label" });
-const cardStrip = h("div", { class: "card-strip" }, cardLabel);
-/** The visible content layer. Switching notes cross-fades a new layer over it. */
-let cardContent = h("div", { class: "card-content" });
-const card = h("div", { class: "card", role: "button", "aria-hidden": "true" }, cardStrip, cardContent);
+const stack = h("div", { class: C.STACK });
+const plus = h("button", { class: C.PLUS, title: "New note (Ctrl+Alt+N)", "aria-label": "New note" }, icon("plus", 14));
+const more = h("button", { class: C.MORE, title: "Show all notes" });
+const glass = h("div", { class: C.PILL_GLASS, "aria-hidden": "true" });
+const pillDivider = h("div", { class: C.PILL_DIVIDER, "aria-hidden": "true" });
+/** App stickers beside notes for the app in front (own layer: tabs clip). */
+const tagLayer = h("div", { class: C.APP_TAGS, "aria-hidden": "true" });
+const column = h("div", { class: C.COLUMN }, glass, pillDivider, stack, tagLayer, plus);
+
+const cardLabel = h("span", { class: C.CARD_LABEL });
+const cardStrip = h("div", { class: C.CARD_STRIP }, cardLabel);
+/** A content layer. Switching notes cross-fades a new layer over the old. */
+const contentLayer = (...items: HTMLElement[]) => h("div", { class: C.CARD_CONTENT, "data-layer": true }, ...items);
+/** The visible content layer. */
+let cardContent = contentLayer();
+const card = h("div", { class: C.CARD, role: "button", "aria-hidden": "true" }, cardStrip, cardContent);
 // The wrapper carries the shadow: clip-path on the card would cut it off.
-const cardWrap = h("div", { class: "card-wrap" }, card);
+const cardWrap = h("div", { class: C.CARD_WRAP }, card);
 root.append(column, cardWrap);
 
 // ---- state -----------------------------------------------------------------
@@ -80,7 +88,7 @@ let lastSize = "";
 
 const cssNum = (name: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
 const noteOf = (tab: HTMLElement) => notes.find((n) => n.id === tab.dataset.id);
-const tabs = () => Array.from(stack.querySelectorAll<HTMLElement>(".tab"));
+const tabs = () => Array.from(stack.querySelectorAll<HTMLElement>("[data-tab]"));
 
 // ---- window sizing ---------------------------------------------------------
 // Computed from the geometry tokens (never measured mid-animation).
@@ -98,7 +106,7 @@ function measure() {
     // Room for the tabs pushed apart around the tallest card, decided once.
     w = cssNum("--deck-peek-w") + SHADOW_ROOM;
     hgt = fullHeight() + cssNum("--deck-peek-max-h") + 16;
-  } else if (root.classList.contains("compact")) {
+  } else if (has(root, "compact")) {
     // pills' centre + half the glass capsule + room for its shadow
     w = cssNum("--deck-pill-inset") + cssNum("--deck-pill-w") / 2 + cssNum("--deck-glass-w") / 2 + 10;
     if (appGroup) w += TAG + 6; // stickers sit just outside the capsule
@@ -187,16 +195,20 @@ function render() {
       const tab = h(
         "div",
         {
-          class: `tab${openWindows.has(n.id) ? " active" : ""}${n.alert ? " alert" : ""}${prog ? " has-progress" : ""}${forFrontApp(n) ? " for-app" : ""}`,
+          class: C.TAB,
+          "data-tab": true,
+          "data-active": openWindows.has(n.id),
+          "data-alert": !!n.alert,
+          "data-progress": !!prog,
           "data-id": n.id,
           "data-color": n.color,
           role: "button",
           tabindex: 0,
           "aria-label": prog ? `${label}, ${prog.done} of ${prog.total} done` : label,
         },
-        h("div", { class: "tab-strip" }, h("span", { class: "tab-label" }, label)),
-        prog ? h("span", { class: "tab-progress", "aria-hidden": "true" }) : null,
-        n.alert ? h("span", { class: "tab-alert", "aria-hidden": "true" }) : null,
+        h("div", { class: C.TAB_STRIP }, h("span", { class: C.TAB_LABEL }, label)),
+        prog ? h("span", { class: C.TAB_PROGRESS, "aria-hidden": "true" }) : null,
+        n.alert ? h("span", { class: C.TAB_ALERT, "aria-hidden": "true" }) : null,
       );
       tab.style.setProperty("--tab-h", `${heights[i]}px`);
       if (prog) tab.style.setProperty("--progress", String(prog.ratio));
@@ -211,7 +223,7 @@ function render() {
 
   layoutPills();
   setCompact(!engaged, false);
-  const tab = reopen && engaged ? stack.querySelector<HTMLElement>(`.tab[data-id="${reopen}"]`) : null;
+  const tab = reopen && engaged ? stack.querySelector<HTMLElement>(`[data-tab][data-id="${reopen}"]`) : null;
   if (tab) openCard(tab, false);
   else resetCard();
   void fit();
@@ -250,7 +262,7 @@ function layoutTags(pillCentres: number[]) {
     ...tabs()
       .slice(0, appGroup)
       .map((t, i) => {
-        const tag = h("span", { class: "app-tag", "data-id": t.dataset.id!, title: `For ${name}` }, appIconEl(frontApp!, TAG));
+        const tag = h("span", { class: C.APP_TAG, "data-id": t.dataset.id!, title: `For ${name}` }, sticker(frontApp!));
         tag.style.setProperty("--y-tab", `${Math.round(topInColumn(t) + 9)}px`);
         tag.style.setProperty("--y-pill", `${Math.round(pillCentres[i] - TAG / 2)}px`);
         return tag;
@@ -258,7 +270,14 @@ function layoutTags(pillCentres: number[]) {
   );
 }
 
-const tagFor = (tab: HTMLElement) => tagLayer.querySelector<HTMLElement>(`.app-tag[data-id="${tab.dataset.id}"]`);
+/** The app's icon as a sticker (white tile, logo centred), slightly rounder. */
+function sticker(exe: string): HTMLElement {
+  const el = appIconEl(exe, TAG);
+  el.classList.add("rounded-[5px]!");
+  return el;
+}
+
+const tagFor = (tab: HTMLElement) => tagLayer.querySelector<HTMLElement>(`[data-id="${tab.dataset.id}"]`);
 
 /** Pill-mode geometry: one centred column of pills inside a glass capsule.
  *  Notes for the app in front sit first, under that app's icon, then a
@@ -295,12 +314,12 @@ function layoutPills() {
 
 /** Resting state is pills; the deck becomes tabs while the pointer is on it. */
 function setCompact(on: boolean, animate = true) {
-  if (root.classList.contains("compact") === on) return;
-  if (!animate) root.classList.add("instant");
-  root.classList.toggle("compact", on);
+  if (has(root, "compact") === on) return;
+  if (!animate) flag(root, "instant");
+  flag(root, "compact", on);
   if (!animate) {
     void root.offsetHeight;
-    requestAnimationFrame(() => root.classList.remove("instant"));
+    requestAnimationFrame(() => flag(root, "instant", false));
   }
 }
 
@@ -308,28 +327,37 @@ function setCompact(on: boolean, animate = true) {
 const SWAP_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 function contentFor(n: Note): HTMLElement[] {
-  const body = h("div", { class: "peek-body rich" });
+  // (the empty-note placeholder is drawn by `rich` from data-placeholder)
+  const body = h("div", { class: C.PEEK_BODY, "data-placeholder": "Empty note" });
   setRich(body, n.body);
   const prog = checklistProgress(n.text);
-  const bar = prog ? h("span", { class: "peek-bar" }, h("span")) : null;
+  const bar = prog ? h("span", { class: C.PEEK_BAR }, h("span", { class: C.PEEK_BAR_FILL })) : null;
   bar?.style.setProperty("--progress", String(prog!.ratio));
-  return [
+  const forIcon = () => {
+    const el = appIconEl(frontApp!, 16);
+    el.classList.add("rounded-[4px]!");
+    return el;
+  };
+  const items = [
     ...(n.alert
-      ? [h("div", { class: `peek-alert${missed.has(n.id) ? " missed" : ""}` }, icon("bell", 12),
+      ? [h("div", { class: C.PEEK_ALERT, "data-missed": missed.has(n.id) }, icon("bell", 12),
           missed.has(n.id) ? `Missed · ${clockLabel(missed.get(n.id)!)}` : "Reminder")]
       : []),
     ...(forFrontApp(n)
-      ? [h("div", { class: "peek-for" }, appIconEl(frontApp!, 16), `For ${appName(frontApp!)}`)]
+      ? [h("div", { class: C.PEEK_FOR }, forIcon(), `For ${appName(frontApp!)}`)]
       : []),
-    h("div", { class: "peek-title truncate" }, displayTitle(n.title, n.text)),
+    h("div", { class: C.PEEK_TITLE }, displayTitle(n.title, n.text)),
     body,
     h(
       "div",
-      { class: "peek-foot" },
-      prog ? h("span", { class: "peek-progress" }, bar, `${prog.done} of ${prog.total} done`) : null,
+      { class: C.PEEK_FOOT },
+      prog ? h("span", { class: C.PEEK_PROGRESS }, bar, `${prog.done} of ${prog.total} done`) : null,
       h("span", null, `Edited ${agoLong(n.updated)}`),
     ),
   ];
+  // Content arrives in a short stagger (by position), leaves fast.
+  items.forEach((el, i) => (el.className = cx(el.className, C.CARD_ITEM, C.CARD_ITEM_STAGGER[i])));
+  return items;
 }
 
 function setCardMeta(n: Note) {
@@ -342,7 +370,7 @@ function setCardMeta(n: Note) {
 function fillCard(n: Note) {
   setCardMeta(n);
   cardLabel.textContent = displayTitle(n.title, n.text);
-  card.querySelectorAll(".card-content").forEach((l) => l !== cardContent && l.remove());
+  card.querySelectorAll("[data-layer]").forEach((l) => l !== cardContent && l.remove());
   cardContent.replaceChildren(...contentFor(n));
 }
 
@@ -352,9 +380,9 @@ function fillCard(n: Note) {
 function swapCard(n: Note, dir: number) {
   setCardMeta(n);
   // Drop layers left over from an earlier, still-running swap.
-  card.querySelectorAll(".card-content").forEach((l) => l !== cardContent && l.remove());
+  card.querySelectorAll("[data-layer]").forEach((l) => l !== cardContent && l.remove());
   const old = cardContent;
-  const next = h("div", { class: "card-content" }, ...contentFor(n));
+  const next = contentLayer(...contentFor(n));
   card.append(next);
   cardContent = next;
 
@@ -417,7 +445,7 @@ function pushNeighbours(open: HTMLElement | null, cardY = 0, cardH = 0) {
     t.style.setProperty("--shift", `${shift}px`);
     const tag = tagFor(t);
     tag?.style.setProperty("--shift", `${shift}px`);
-    tag?.classList.toggle("off", i === at); // the open card names the app itself
+    if (tag) flag(tag, "off", i === at); // the open card names the app itself
   }
   plus.style.setProperty("--shift", `${at < 0 ? 0 : down}px`);
   more.style.setProperty("--shift", `${at < 0 ? 0 : down}px`);
@@ -429,9 +457,9 @@ function openCard(tab: HTMLElement, animate = true) {
   if (!n || tab === openTab) return;
   clearTimeout(hideTimer);
   clearTimeout(shrinkTimer);
-  cardWrap.classList.remove("leaving"); // reopening mid-close just continues
-  const switching = openTab !== null && card.classList.contains("open");
-  openTab?.classList.remove("under");
+  flag(cardWrap, "leaving", false); // reopening mid-close just continues
+  const switching = openTab !== null && has(card, "open");
+  if (openTab) flag(openTab, "under", false);
   openTab = tab;
 
   if (switching) {
@@ -441,24 +469,24 @@ function openCard(tab: HTMLElement, animate = true) {
     const nextY = tabBox(tab).top;
     swapCard(n, nextY >= prevY ? 1 : -1);
     place(tab);
-    tab.classList.add("under");
+    flag(tab, "under");
     return;
   }
 
   // First open: start clipped to the tab, then unfold.
   fillCard(n);
-  card.classList.add("snap");
+  flag(card, "snap");
   const geo = place(tab);
   card.style.clipPath = tabClip(geo.tabTop, geo.tabH, geo.y, geo.h);
-  card.classList.add("visible");
-  card.classList.remove("open");
+  flag(card, "visible");
+  flag(card, "open", false);
   void card.offsetWidth; // commit the closed state
-  if (animate) card.classList.remove("snap");
+  if (animate) flag(card, "snap", false);
   card.style.clipPath = "";
-  card.classList.add("open");
-  tab.classList.add("under");
+  flag(card, "open");
+  flag(tab, "under");
   card.setAttribute("aria-hidden", "false");
-  if (!animate) requestAnimationFrame(() => card.classList.remove("snap"));
+  if (!animate) requestAnimationFrame(() => flag(card, "snap", false));
 }
 
 /** Compute and apply the card's position/size next to `tab`. */
@@ -486,17 +514,18 @@ function closeCard() {
   if (!tab) return;
   openTab = null;
   pushNeighbours(null);
-  tab.classList.remove("under");
-  cardWrap.classList.add("leaving");
+  flag(tab, "under", false);
+  flag(cardWrap, "leaving");
   card.setAttribute("aria-hidden", "true");
   clearTimeout(hideTimer);
   hideTimer = window.setTimeout(() => {
     if (openTab) return;
-    card.classList.add("snap");
-    card.classList.remove("open", "visible");
-    cardWrap.classList.remove("leaving");
+    flag(card, "snap");
+    flag(card, "open", false);
+    flag(card, "visible", false);
+    flag(cardWrap, "leaving", false);
     card.style.clipPath = "";
-    requestAnimationFrame(() => card.classList.remove("snap"));
+    requestAnimationFrame(() => flag(card, "snap", false));
   }, CLOSE_MS);
 }
 
@@ -504,13 +533,14 @@ function closeCard() {
 function resetCard() {
   clearTimeout(hideTimer);
   openTab = null;
-  cardWrap.classList.remove("leaving");
-  card.classList.add("snap");
-  card.classList.remove("open", "visible");
+  flag(cardWrap, "leaving", false);
+  flag(card, "snap");
+  flag(card, "open", false);
+  flag(card, "visible", false);
   card.style.clipPath = "";
   pushNeighbours(null);
-  stack.querySelectorAll(".tab.under").forEach((t) => t.classList.remove("under"));
-  requestAnimationFrame(() => card.classList.remove("snap"));
+  stack.querySelectorAll("[data-under]").forEach((t) => flag(t, "under", false));
+  requestAnimationFrame(() => flag(card, "snap", false));
 }
 
 // ---- engage / disengage --------------------------------------------------------
@@ -561,7 +591,7 @@ function disengage() {
 
 function tabAtPointer(): HTMLElement | null {
   const el = document.elementFromPoint(pointer.x - window.screenX, pointer.y - window.screenY);
-  const tab = el?.closest<HTMLElement>(".tab") ?? null;
+  const tab = el?.closest<HTMLElement>("[data-tab]") ?? null;
   return tab && stack.contains(tab) ? tab : null;
 }
 
@@ -569,7 +599,8 @@ function tabAtPointer(): HTMLElement | null {
 /** Pointer on or near the deck (or its card)? Geometry with slack, so gaps
  *  between tabs, the "+" and the card's edges never count as leaving. */
 function nearDeck(e: PointerEvent): boolean {
-  if ((e.target as HTMLElement).closest?.(".deck-toast, .card-wrap")) return true;
+  const target = e.target as Node;
+  if (cardWrap.contains(target) || toastEl?.contains(target)) return true;
   const r = column.getBoundingClientRect();
   let top = r.top;
   let bottom = r.bottom;
@@ -649,12 +680,12 @@ function pressTab(tab: HTMLElement, source: HTMLElement, down: PointerEvent) {
       clearTimeout(hoverTimer);
       resetCard();
       startTop = tab.getBoundingClientRect().top;
-      tagLayer.classList.add("off");
-      slot = h("div", { class: "slot" });
+      flag(tagLayer, "off");
+      slot = h("div", { class: C.SLOT });
       slot.style.height = `${tab.offsetHeight}px`;
       tab.replaceWith(slot);
       root.append(tab);
-      tab.classList.add("floating");
+      flag(tab, "floating");
     }
     tab.style.top = `${startTop + dy}px`;
     const siblings = Array.from(stack.children).filter((c) => c !== slot) as HTMLElement[];
@@ -675,9 +706,9 @@ function pressTab(tab: HTMLElement, source: HTMLElement, down: PointerEvent) {
       void api.openNoteWindow(tab.dataset.id!);
       return;
     }
-    tab.classList.remove("floating");
+    flag(tab, "floating", false);
     tab.style.top = "";
-    tagLayer.classList.remove("off");
+    flag(tagLayer, "off", false);
     slot!.replaceWith(tab);
     dragging = false;
     const ids = Array.from(stack.children).map((c) => (c as HTMLElement).dataset.id!).filter(Boolean);
@@ -696,11 +727,11 @@ function pressTab(tab: HTMLElement, source: HTMLElement, down: PointerEvent) {
 // ---- "+" -------------------------------------------------------------------------
 plus.addEventListener("pointerenter", () => clearTimeout(hoverTimer));
 plus.addEventListener("pointerdown", () => {
-  plus.classList.remove("pressed");
+  flag(plus, "pressed", false);
   void plus.offsetWidth;
-  plus.classList.add("pressed");
+  flag(plus, "pressed");
 });
-plus.addEventListener("animationend", () => plus.classList.remove("pressed"));
+plus.addEventListener("animationend", () => flag(plus, "pressed", false));
 plus.addEventListener("click", async () => {
   await new Promise((r) => setTimeout(r, 140)); // let the press feedback play
   disengage();
@@ -714,15 +745,16 @@ function showToast(title: string, count: number, token: number) {
   const label = count > 1 ? `Deleted ${count} notes` : `Deleted “${title}”`;
   toastEl = h(
     "div",
-    { class: "deck-toast", role: "status" },
-    h("span", null, label),
+    { class: C.TOAST, role: "status" },
+    h("span", { class: C.TOAST_TEXT }, label),
     h("button", {
+      class: C.TOAST_UNDO,
       onclick: async () => {
         hideToast();
         await api.undoDelete(token).catch(() => {});
       },
     }, "Undo"),
-    h("button", { class: "toast-x", title: "Dismiss", "aria-label": "Dismiss", onclick: () => hideToast() }, icon("close", 12)),
+    h("button", { class: C.TOAST_X, title: "Dismiss", "aria-label": "Dismiss", onclick: () => hideToast() }, icon("close", 12)),
   );
   root.append(toastEl);
   void fit();
@@ -759,7 +791,7 @@ void on("reminder:fired", async ({ id, due, missed: wasMissed }) => {
   if (wasMissed) missed.set(id, due);
   else missed.delete(id);
   await reload();
-  const tab = stack.querySelector<HTMLElement>(`.tab[data-id="${id}"]`);
+  const tab = stack.querySelector<HTMLElement>(`[data-tab][data-id="${id}"]`);
   if (!tab) return; // not on the deck right now; the notification covers it
   await engage(tab);
   clearTimeout(alertTimer);
@@ -779,7 +811,7 @@ void on("notes:deleted", (p) => showToast(p.title, p.count, p.token));
 void on("notes:restored", () => hideToast());
 void on("deck:note-windows", (ids) => {
   openWindows = new Set(ids);
-  tabs().forEach((t) => t.classList.toggle("active", openWindows.has(t.dataset.id!)));
+  tabs().forEach((t) => flag(t, "active", openWindows.has(t.dataset.id!)));
 });
 void on("settings:changed", (s) => {
   setTheme(s.theme);

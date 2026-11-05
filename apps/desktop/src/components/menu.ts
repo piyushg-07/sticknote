@@ -1,6 +1,7 @@
 // Lightweight popover menu anchored to a button.
 import { h } from "../lib/dom";
 import { icon, type IconName } from "../lib/icons";
+import { caps, cx } from "../lib/ui";
 
 export type MenuEntry =
   | { label: string; icon?: IconName; checked?: boolean; run: () => void; danger?: boolean; font?: string; hint?: string }
@@ -19,31 +20,55 @@ export interface MenuOptions {
   align?: "start" | "end";
 }
 
+// Light (theme) menu vs the always-dark menu used inside note windows.
+const STYLE = {
+  light: {
+    menu: "fixed z-50 min-w-[200px] rounded-lg border border-line bg-surface p-1 shadow-lg animate-pop-in",
+    item: "flex h-8 w-full items-center gap-3 rounded-sm px-3 text-left text-md hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none",
+    text: "text-fg",
+    icon: "text-fg-muted",
+    hint: "text-fg-faint",
+  },
+  dark: {
+    menu: "fixed z-50 min-w-[190px] rounded-lg border border-white/6 bg-toast p-1 text-toast-fg shadow-lg animate-pop-in",
+    item: "flex h-[34px] w-full items-center gap-3 rounded-sm px-3 text-left text-md hover:bg-white/8 focus-visible:bg-white/8 focus-visible:outline-none",
+    text: "text-toast-fg",
+    icon: "text-[rgb(242_242_246/0.7)]",
+    hint: "text-[rgb(244_244_245/0.45)]",
+  },
+};
+
+const withClass = (el: SVGSVGElement, cls: string) => {
+  el.classList.add(...cls.split(" "));
+  return el;
+};
+
 export function showMenu(anchor: HTMLElement, entries: MenuEntry[], opts: MenuOptions = {}) {
   closeMenu();
+  const s = opts.variant === "dark" ? STYLE.dark : STYLE.light;
   const items: HTMLButtonElement[] = [];
   const el = h(
     "div",
-    { class: `menu${opts.variant ? ` menu-${opts.variant}` : ""}`, role: "menu" },
+    { class: s.menu, role: "menu" },
     ...entries.map((e) => {
-      if ("separator" in e) return h("div", { class: "menu-sep", role: "separator" });
-      if ("heading" in e) return h("div", { class: "menu-label t-caps" }, e.heading);
+      if ("separator" in e) return h("div", { class: "mx-2 my-1 h-px bg-line", role: "separator" });
+      if ("heading" in e) return h("div", { class: cx(caps, "px-3 pt-2 pb-1") }, e.heading);
       const b = h(
         "button",
         {
-          class: "menu-item",
+          class: cx(s.item, e.danger ? "text-danger hover:bg-danger-soft" : s.text),
           role: "menuitem",
           onclick: () => {
             closeMenu();
             e.run();
           },
         },
-        e.icon ? icon(e.icon) : null,
-        h("span", { class: "truncate" }, e.label),
-        e.hint ? h("span", { class: "hint" }, e.hint) : null,
-        e.checked ? h("span", { class: "check" }, icon("check")) : null,
+        e.icon ? withClass(icon(e.icon), s.icon) : null,
+        // A font entry previews its typeface (data-font sets --note-font).
+        h("span", { class: e.font ? "truncate font-note text-lg" : "truncate" }, e.label),
+        e.hint ? h("span", { class: cx("ml-auto whitespace-nowrap pl-3 text-xs", s.hint) }, e.hint) : null,
+        e.checked ? h("span", { class: e.hint ? "ml-2" : "ml-auto" }, withClass(icon("check"), s.icon)) : null,
       );
-      if (e.danger) b.classList.add("btn-danger");
       if (e.font) b.dataset.font = e.font;
       items.push(b);
       return b;

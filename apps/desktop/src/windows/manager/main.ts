@@ -27,11 +27,11 @@ const list = listPanel();
 const detail = detailPane();
 const settings = settingsView();
 const about = aboutView();
-const notesArea = h("div", { class: "notes-area" }, list, detail);
-const content = h("main", { class: "content" }, notesArea, settings, about);
+const notesArea = h("div", { class: "flex min-w-0 flex-1 gap-6 narrow:gap-4" }, list, detail);
+const content = h("main", { class: "flex min-h-0 flex-1 px-6 pb-6 narrow:px-4" }, notesArea, settings, about);
 const nav = sidebar();
 // Layout: full-height sidebar | main (draggable top bar + current view).
-document.getElementById("app")!.append(nav, h("div", { class: "main" }, topbar(), content));
+document.getElementById("app")!.append(nav, h("div", { class: "flex min-w-0 flex-1 flex-col" }, topbar(), content));
 
 function route() {
   notesArea.hidden = !isListView(state.view);
@@ -117,7 +117,7 @@ window.addEventListener("keydown", (e) => {
     if (state.checked.size) update({ checked: new Set() });
   } else if (e.key === "Escape" && editing) {
     (document.activeElement as HTMLElement).blur();
-    document.querySelector<HTMLElement>(".list")?.focus();
+    document.querySelector<HTMLElement>("[data-note-list]")?.focus();
   }
 });
 

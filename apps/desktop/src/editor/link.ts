@@ -2,7 +2,7 @@
 import { h } from "../lib/dom";
 
 /** Normalise user input into a safe URL, or null if it isn't one. */
-export function normalizeUrl(raw: string): string | null {
+function normalizeUrl(raw: string): string | null {
   let s = raw.trim();
   if (!s) return "";
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) s = `mailto:${s}`;
@@ -20,8 +20,14 @@ export function normalizeUrl(raw: string): string | null {
  */
 export function openLinkPopover(anchor: HTMLElement, range: Range, initial: string): Promise<string | null> {
   return new Promise((resolve) => {
-    const input = h("input", { type: "text", placeholder: "Paste or type a link", value: initial, spellcheck: "false" });
-    const pop = h("div", { class: "link-pop", role: "dialog", "aria-label": "Add link" }, input);
+    const input = h("input", {
+      class: "h-7 w-[220px] rounded-sm border border-line bg-surface-2 px-2 text-sm text-fg",
+      type: "text", placeholder: "Paste or type a link", value: initial, spellcheck: "false" });
+    const pop = h("div", {
+      class: "fixed z-70 flex animate-pop-in gap-1 rounded-md border border-line bg-surface p-1 font-ui shadow-lg",
+      role: "dialog",
+      "aria-label": "Add link",
+    }, input);
     document.body.append(pop);
 
     const rect = range.getBoundingClientRect();

@@ -22,7 +22,7 @@ export function agoLong(ms: number): string {
   return /^\d+[mhd]$/.test(a) ? `${a} ago` : a;
 }
 
-export function shortDate(ms: number): string {
+function shortDate(ms: number): string {
   const d = new Date(ms);
   const sameYear = d.getFullYear() === new Date().getFullYear();
   return d.toLocaleDateString(undefined, {
@@ -41,7 +41,7 @@ function startOfDay(d: Date) {
 }
 
 /** "Today 5:00 PM", "Tomorrow 9:00 AM", "Mon 9:00 AM", "12 Nov, 9:00 AM". */
-export function reminderLabel(ms: number): string {
+function reminderLabel(ms: number): string {
   const d = new Date(ms);
   const days = Math.round((startOfDay(d).getTime() - startOfDay(new Date()).getTime()) / DAY);
   if (days === 0) return `Today ${clock(d)}`;

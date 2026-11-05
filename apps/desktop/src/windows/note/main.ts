@@ -20,6 +20,7 @@ import { toolbar } from "../../editor/toolbar";
 import { swatches } from "../../components/swatches";
 import { appChip, reminderChip } from "../../components/note-meta";
 import { initTooltips } from "../../components/tooltip";
+import { cx } from "../../lib/ui";
 
 initTooltips();
 import type { Note, NoteFont } from "../../lib/types";
@@ -32,16 +33,24 @@ let note: Note;
 let saving = false;
 
 // ---- view ------------------------------------------------------------------
+/** Small ink-coloured header buttons (hide, close). */
+const noteIcon =
+  "grid size-[30px] place-items-center rounded-sm text-note-ink opacity-80 transition-[background-color,opacity] duration-[120ms] hover:bg-black/7 hover:opacity-100";
+/** Footer text buttons (Delete, Mark complete, Close); add a text colour. */
+const noteAction =
+  "h-[30px] whitespace-nowrap rounded-sm px-3 text-md transition-[background-color] duration-[120ms] hover:bg-black/7";
+
 const title = h("input", {
-  class: "note-title",
+  class:
+    "h-[30px] min-w-0 flex-1 border-0 bg-transparent p-0 font-ui text-note-title font-bold text-note-ink caret-note-ink outline-0 placeholder:text-note-ink placeholder:opacity-100 focus:placeholder:text-note-ink-muted",
   placeholder: "Untitled note",
   maxlength: 200,
   spellcheck: "false",
   "aria-label": "Note title",
 });
-const meta = h("span", { class: "note-meta", "data-tauri-drag-region": true });
-const hideBtn = h("button", { class: "note-icon", title: "Hide (click its tab to bring it back)", "aria-label": "Hide" }, icon("minus", 15));
-const closeBtn = h("button", { class: "note-icon", title: "Close (Esc)", "aria-label": "Close" }, icon("close", 15));
+const meta = h("span", { class: "mr-2 whitespace-nowrap text-xs text-note-ink-muted", "data-tauri-drag-region": true });
+const hideBtn = h("button", { class: noteIcon, title: "Hide (click its tab to bring it back)", "aria-label": "Hide" }, icon("minus", 15));
+const closeBtn = h("button", { class: noteIcon, title: "Close (Esc)", "aria-label": "Close" }, icon("close", 15));
 const remind = reminderChip({
   dark: true,
   onSet: (at, repeat) => {
@@ -60,15 +69,19 @@ const appTie = appChip({
 });
 const head = h(
   "header",
-  { class: "note-head", "data-tauri-drag-region": true },
+  { class: "flex h-14 flex-none items-center gap-2 pr-4 pl-[22px]", "data-tauri-drag-region": true },
   title,
-  h("div", { class: "note-chips" }, remind.el, appTie.el),
+  h("div", { class: "flex flex-none items-center gap-0.5" }, remind.el, appTie.el),
   meta,
   hideBtn,
   closeBtn,
 );
 
-const bodyEl = h("div", { class: "note-body" });
+const bodyEl = h("div", {
+  // `rich` (added by the editor) styles the generated HTML and sets the note font.
+  class:
+    "min-h-0 flex-1 overflow-y-auto px-[22px] py-3 text-[length:calc(var(--text-note-body)*var(--note-font-scale,1))] leading-[1.45] caret-note-ink [&::-webkit-scrollbar-thumb]:bg-note-ink-faint",
+});
 const editor = new Editor(bodyEl, { onChange: () => scheduleSave() });
 
 const tools = toolbar(editor, {
@@ -85,21 +98,33 @@ const tools = toolbar(editor, {
 const picker = swatches((c) => void setColor(c));
 const foot = h(
   "footer",
-  { class: "note-foot on-note" },
+  {
+    // data-on-note: components inside (swatches, app stacks) restyle for note paper.
+    "data-on-note": true,
+    // The descendant variants size the swatch picker for the footer, ring the
+    // selected swatch in ink, and drop the picker on narrow windows.
+    class:
+      "flex h-[50px] flex-none items-center gap-1 pr-4 pb-1 pl-[22px] [&_[role=radiogroup]]:gap-1 [&_[role=radio]]:size-4 [&_[role=radio][aria-checked=true]]:shadow-[inset_0_0_0_2px_var(--color-note-ink)] [@media(max-width:440px)]:[&_[role=radiogroup]]:hidden",
+  },
   picker.el,
-  h("span", { class: "grow" }),
-  h("button", { class: "note-action danger", title: "Delete (Ctrl+Backspace) — undo for 10 seconds", onclick: () => void remove() }, "Delete"),
-  h("button", { class: "note-action", title: "Archive this note", onclick: () => void complete() }, "Mark complete"),
-  h("button", { class: "note-action", title: "Close (Esc)", onclick: () => void close() }, "Close"),
+  h("span", { class: "flex-1" }),
+  h("button", { class: cx(noteAction, "text-[#c0392b]"), title: "Delete (Ctrl+Backspace) — undo for 10 seconds", onclick: () => void remove() }, "Delete"),
+  h("button", { class: cx(noteAction, "text-note-ink"), title: "Archive this note", onclick: () => void complete() }, "Mark complete"),
+  h("button", { class: cx(noteAction, "text-note-ink"), title: "Close (Esc)", onclick: () => void close() }, "Close"),
 );
 
 const shell = h(
   "div",
-  { class: "note-shell" },
+  {
+    // Laid out but invisible until the window is revealed; data-anim plays the
+    // entrance / exit (tw/note.css), data-resizing while the grip is dragged.
+    class:
+      "group/note relative flex h-full flex-col overflow-hidden rounded-[20px] bg-note text-note-ink opacity-0 shadow-note transition-[background-color] duration-200 ease-in-out data-[anim=enter]:animate-note-in data-[anim=enter]:opacity-100 data-[anim=leave]:pointer-events-none data-[anim=leave]:animate-note-out data-[anim=leave]:opacity-100 data-resizing:cursor-nwse-resize! data-resizing:select-none data-resizing:**:cursor-nwse-resize! data-resizing:**:select-none",
+  },
   head,
-  h("div", { class: "note-rule" }),
+  h("div", { class: "mx-5 h-px flex-none bg-note-ink-faint" }),
   bodyEl,
-  h("div", { class: "note-tools" }, tools.el),
+  h("div", { class: "flex-none pt-1 pr-4 pl-[18px]" }, tools.el),
   foot,
 );
 document.getElementById("app")!.append(shell);
@@ -109,7 +134,11 @@ document.getElementById("app")!.append(shell);
 // together from the bottom-right corner. Sizes are logical px (CSS px).
 const MIN_W = 340;
 const MIN_H = 260;
-const grip = h("div", { class: "resize-grip", title: "Drag to resize", "aria-hidden": "true" });
+const grip = h("div", {
+  // two diagonal ink strokes in the bottom-right corner
+  class:
+    "absolute right-[3px] bottom-[3px] size-4 cursor-nwse-resize touch-none rounded-br-[14px] bg-[linear-gradient(135deg,transparent_45%,var(--color-note-ink)_45%,var(--color-note-ink)_52%,transparent_52%,transparent_68%,var(--color-note-ink)_68%,var(--color-note-ink)_75%,transparent_75%)] opacity-35 transition-opacity duration-[120ms] hover:opacity-75 group-data-resizing/note:opacity-75",
+  title: "Drag to resize", "aria-hidden": "true" });
 shell.append(grip);
 grip.addEventListener("pointerdown", (down) => {
   if (down.button !== 0) return;
@@ -139,9 +168,9 @@ grip.addEventListener("pointerdown", (down) => {
     grip.removeEventListener("pointermove", move);
     grip.removeEventListener("pointerup", up);
     grip.removeEventListener("pointercancel", up);
-    shell.classList.remove("resizing");
+    delete shell.dataset.resizing;
   };
-  shell.classList.add("resizing");
+  shell.dataset.resizing = "";
   grip.addEventListener("pointermove", move);
   grip.addEventListener("pointerup", up);
   grip.addEventListener("pointercancel", up);
@@ -200,18 +229,17 @@ title.addEventListener("keydown", (e) => {
 
 // ---- actions ---------------------------------------------------------------
 // ---- enter / leave animations ---------------------------------------------
-const LEAVE_MS = 200; // must match .note-shell.leave in note.css
+const LEAVE_MS = 200; // must match --animate-note-out in styles/tw/note.css
 
 function playEnter() {
-  shell.classList.remove("leave", "enter");
+  delete shell.dataset.anim;
   void shell.offsetWidth; // restart the animation
-  shell.classList.add("enter");
+  shell.dataset.anim = "enter";
 }
 
 /** Fade + shrink the note away before the window goes. */
 function playLeave(): Promise<void> {
-  shell.classList.remove("enter");
-  shell.classList.add("leave");
+  shell.dataset.anim = "leave";
   return new Promise((r) => setTimeout(r, LEAVE_MS));
 }
 

@@ -61,7 +61,7 @@ export function noteById(id: string | null): Note | undefined {
   return id ? state.notes.find((n) => n.id === id) : undefined;
 }
 
-export function inView(n: Note, view: ManagerView): boolean {
+function inView(n: Note, view: ManagerView): boolean {
   if (view === "deck") return n.status === "active" && n.onDeck;
   if (view === "archive") return n.status === "archived";
   return true;

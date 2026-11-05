@@ -6,6 +6,17 @@ import { toast } from "../../components/toast";
 import { setTheme } from "../../lib/theme";
 import type { Settings, SettingsPatch } from "../../lib/types";
 import { state, subscribe, update } from "./state";
+import { btn, btnDanger, btnSm, cx, kbd } from "../../lib/ui";
+
+// Shared by the Settings and About pages.
+export const PAGE = "min-w-0 flex-1 overflow-y-auto";
+export const PAGE_INNER = "mx-auto flex max-w-[720px] flex-col gap-4 pb-8";
+export const PAGE_TITLE_TEXT = "m-0 font-display text-3xl font-bold tracking-[-0.015em]";
+export const CARD = "flex flex-col gap-4 rounded-xl border border-line bg-surface p-5";
+export const CARD_TIGHT = "flex flex-col gap-1 rounded-xl border border-line bg-surface p-5";
+export const SET_TITLE = "text-md font-semibold";
+export const SET_DESC = "mt-0.5 text-sm text-fg-muted";
+const KEYS_HEADING = "mt-2 text-2xs font-semibold tracking-[0.06em] text-fg-faint uppercase";
 
 const GLOBAL_KEYS: [string, string][] = [
   ["Ctrl + Alt + N", "Quick note (Enter saves, Ctrl+Enter opens it)"],
@@ -44,41 +55,47 @@ async function patch(p: SettingsPatch) {
 function row(title: string, desc: string | null, control: Node | null) {
   return h(
     "div",
-    { class: "set-row" },
-    h("div", { class: "set-text" }, h("div", { class: "set-title" }, title), desc ? h("div", { class: "set-desc" }, desc) : null),
+    { class: "flex items-center gap-4 [&+&]:border-t [&+&]:border-line [&+&]:pt-4" },
+    h("div", { class: "min-w-0 flex-1" }, h("div", { class: SET_TITLE }, title), desc ? h("div", { class: SET_DESC }, desc) : null),
     control,
   );
 }
 
 function keys(list: [string, string][]) {
-  return h("div", { class: "keys" }, ...list.map(([k, d]) => h("div", { class: "key-row" }, h("kbd", null, k), h("span", null, d))));
+  return h(
+    "div",
+    { class: "flex flex-col gap-2" },
+    ...list.map(([k, d]) =>
+      h("div", { class: "flex items-center gap-3 text-md text-fg-muted" }, h("kbd", { class: cx(kbd, "min-w-0") }, k), h("span", null, d)),
+    ),
+  );
 }
 
 /** Shortcut reference, folded away until asked for. */
 function shortcutsCard(): HTMLElement {
-  const body = h("div", { class: "keys-body", hidden: true },
-    h("div", { class: "keys-heading t-caps" }, "Anywhere"),
+  const body = h("div", { class: "flex flex-col gap-2 border-t border-line pt-4", hidden: true },
+    h("div", { class: KEYS_HEADING }, "Anywhere"),
     keys(GLOBAL_KEYS),
-    h("div", { class: "keys-heading t-caps" }, "In All notes"),
+    h("div", { class: KEYS_HEADING }, "In All notes"),
     keys(WINDOW_KEYS),
-    h("div", { class: "keys-heading t-caps" }, "In a note"),
+    h("div", { class: KEYS_HEADING }, "In a note"),
     keys(NOTE_KEYS),
   );
-  const btn = h("button", { class: "btn btn-sm", "aria-expanded": "false" }, "Show");
-  btn.addEventListener("click", () => {
+  const showBtn = h("button", { class: cx(btn, btnSm), "aria-expanded": "false" }, "Show");
+  showBtn.addEventListener("click", () => {
     const open = body.hidden;
     body.hidden = !open;
-    btn.textContent = open ? "Hide" : "Show";
-    btn.setAttribute("aria-expanded", String(open));
+    showBtn.textContent = open ? "Hide" : "Show";
+    showBtn.setAttribute("aria-expanded", String(open));
   });
-  return h("div", { class: "set-card" }, row("Keyboard shortcuts", null, btn), body);
+  return h("div", { class: CARD }, row("Keyboard shortcuts", null, showBtn), body);
 }
 
 function build(s: Settings): HTMLElement[] {
   return [
-    h("h1", { class: "page-title" }, "Settings"),
+    h("h1", { class: cx(PAGE_TITLE_TEXT, "mb-2") }, "Settings"),
 
-    h("div", { class: "set-card" },
+    h("div", { class: CARD },
       row("Theme", "Follows Windows unless you choose otherwise.",
         segmented("Theme", [
           { value: "auto", label: "Auto" },
@@ -90,7 +107,7 @@ function build(s: Settings): HTMLElement[] {
         })),
     ),
 
-    h("div", { class: "set-card" },
+    h("div", { class: CARD },
       row("Screen edge", "Which side of the display your notes live on.",
         segmented("Screen edge", [
           { value: "left", label: "Left" },
@@ -102,22 +119,22 @@ function build(s: Settings): HTMLElement[] {
         toggle("Hide over fullscreen apps", s.hideFullscreen, (v) => void patch({ hideFullscreen: v }))),
     ),
 
-    h("div", { class: "set-card" },
+    h("div", { class: CARD },
       row("Start with Windows", "Adds a per-user entry you can remove in Task Manager.",
         toggle("Start with Windows", s.startWithWindows, (v) => void patch({ startWithWindows: v }))),
     ),
 
     shortcutsCard(),
 
-    h("div", { class: "set-foot" },
-      h("button", { class: "btn btn-danger btn-sm", onclick: () => void api.quit() }, "Quit Peekin"),
+    h("div", { class: "flex justify-center pt-2" },
+      h("button", { class: cx(btn, btnDanger, btnSm), onclick: () => void api.quit() }, "Quit Peekin"),
     ),
   ];
 }
 
 export function settingsView(): HTMLElement {
-  const el = h("section", { class: "page settings-page" });
-  const inner = h("div", { class: "page-inner" });
+  const el = h("section", { class: PAGE });
+  const inner = h("div", { class: PAGE_INNER });
   el.append(inner);
   const paint = () => inner.replaceChildren(...build(state.settings));
   subscribe((c) => {

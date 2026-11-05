@@ -290,10 +290,6 @@ export const CATEGORIES: Category[] = [
 const BY_EXE = new Map<string, CatalogApp>();
 for (const c of CATEGORIES) for (const app of c.apps) if (!BY_EXE.has(app.exe)) BY_EXE.set(app.exe, app);
 
-export function catalogApp(exe: string): CatalogApp | undefined {
-  return BY_EXE.get(exe.toLowerCase());
-}
-
 /** Display name: the catalog name, else a tidy file name ("my-app.exe" → "My app"). */
 export function appName(exe: string): string {
   const known = BY_EXE.get(exe.toLowerCase());
@@ -312,7 +308,7 @@ type Logo = { svg: string; mono?: boolean };
 let logos: Record<string, Logo> | null = null;
 let logosLoading: Promise<void> | null = null;
 
-export function loadLogos(): Promise<void> {
+function loadLogos(): Promise<void> {
   logosLoading ??= import("./app-logos").then((m) => {
     logos = m.APP_LOGOS;
   });

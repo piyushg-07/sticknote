@@ -11,6 +11,13 @@ import { api } from "../../lib/api";
 import type { Note, SortMode } from "../../lib/types";
 import { state, subscribe, update, visibleNotes, isListView } from "./state";
 import { actions } from "./actions";
+import { btn, btnDanger, btnGhost, btnSm, cx, field, fieldInput, iconBtn } from "../../lib/ui";
+
+const BULK_BTN = cx(btn, btnSm, btnGhost);
+const CHIP =
+  "inline-flex h-5 items-center gap-[5px] whitespace-nowrap rounded-full px-[7px] text-2xs font-semibold tabular-nums [&_.icon]:stroke-[2.2]";
+const CHIP_IDLE = "bg-surface-active text-fg-muted";
+const CHIP_DONE = "bg-accent-soft text-accent-text";
 
 const TITLES = { all: "All notes", deck: "On the deck", archive: "Archive" } as const;
 const SORTS: { mode: SortMode; label: string }[] = [
@@ -26,33 +33,42 @@ const EMPTY = {
 } as const;
 
 export function listPanel() {
-  const heading = h("h2", { class: "panel-title" });
-  const sortBtn = h("button", { class: "icon-btn", title: "Sort", "aria-label": "Sort notes" }, icon("sort"));
-  const ioBtn = h("button", { class: "icon-btn", title: "Import & export", "aria-label": "Import and export" }, icon("fileIO"));
+  const heading = h("h2", { class: "m-0 flex-1 font-display text-2xl font-bold tracking-[-0.015em]" });
+  const sortBtn = h("button", { class: iconBtn, title: "Sort", "aria-label": "Sort notes" }, icon("sort"));
+  const ioBtn = h("button", { class: iconBtn, title: "Import & export", "aria-label": "Import and export" }, icon("fileIO"));
 
-  const search = h("input", { type: "search", placeholder: "Search notes", "aria-label": "Search notes", spellcheck: "false" });
-  const count = h("span", { class: "search-count" });
-  const searchField = h("label", { class: "field search" }, icon("search", 15), search, count);
+  const search = h("input", { class: cx(fieldInput, "[&::-webkit-search-cancel-button]:hidden"), type: "search", placeholder: "Search notes", "aria-label": "Search notes", spellcheck: "false" });
+  const count = h("span", { class: "whitespace-nowrap text-xs text-fg-faint tabular-nums" });
+  const searchField = h("label", {
+    class: cx(field, "mb-3 h-[38px]! rounded-lg! border-transparent! focus-within:border-accent-border!"),
+  }, icon("search", 15), search, count);
 
-  const bulkLabel = h("span", { class: "bulk-label" });
-  const bulkArchive = h("button", { class: "btn btn-sm btn-ghost" });
+  const bulkLabel = h("span", { class: "flex-1 text-sm font-semibold text-accent-text" });
+  const bulkArchive = h("button", { class: BULK_BTN });
   const bulk = h(
     "div",
-    { class: "bulk", hidden: true },
+    { class: "mb-3 flex animate-bulk-in items-center gap-2 rounded-lg bg-accent-soft py-1 pr-1 pl-3", hidden: true },
     bulkLabel,
-    h("div", { class: "bulk-actions" },
+    h("div", { class: "flex items-center" },
       bulkArchive,
-      h("button", { class: "btn btn-sm btn-ghost", onclick: () => void actions.exportNotes("json", [...state.checked]) }, "Export"),
-      h("button", { class: "btn btn-sm btn-ghost btn-danger", onclick: () => void actions.remove([...state.checked]) }, "Delete"),
-      h("button", { class: "icon-btn", title: "Clear selection", "aria-label": "Clear selection", onclick: () => update({ checked: new Set() }) }, icon("close", 14)),
+      h("button", { class: BULK_BTN, onclick: () => void actions.exportNotes("json", [...state.checked]) }, "Export"),
+      h("button", { class: cx(BULK_BTN, btnDanger), onclick: () => void actions.remove([...state.checked]) }, "Delete"),
+      h("button", { class: iconBtn, title: "Clear selection", "aria-label": "Clear selection", onclick: () => update({ checked: new Set() }) }, icon("close", 14)),
     ),
   );
 
-  const list = h("div", { class: "list", role: "listbox", tabindex: 0, "aria-label": "Notes" });
+  const list = h("div", {
+    class: "group/list relative -mx-2 min-h-0 flex-1 overflow-y-auto px-2",
+    role: "listbox",
+    tabindex: 0,
+    "aria-label": "Notes",
+    "data-note-list": true,
+    "data-no-ring": true,
+  });
   const el = h(
     "section",
-    { class: "list-panel" },
-    h("div", { class: "panel-head" }, heading, h("div", { class: "panel-tools" }, sortBtn, ioBtn)),
+    { class: "flex min-h-0 w-[340px] flex-none flex-col narrow:w-[290px]" },
+    h("div", { class: "mb-3 flex min-h-10 items-center gap-2" }, heading, h("div", { class: "flex gap-0.5" }, sortBtn, ioBtn)),
     searchField,
     bulk,
     list,
@@ -122,7 +138,9 @@ export function listPanel() {
     const selected = n.id === state.selectedId;
     const checked = state.checked.has(n.id);
     const check = h("button", {
-      class: "row-check",
+      // Selection checkbox: only shown on hover or while selecting.
+      class:
+        "-mr-3 grid h-[18px] w-0 flex-none place-items-center overflow-hidden rounded-full border-[1.5px] border-line-strong text-on-accent opacity-0 transition-[width,margin,opacity,background-color] duration-[120ms] group-hover/row:mr-0 group-hover/row:w-[18px] group-hover/row:opacity-100 group-data-selecting/list:mr-0 group-data-selecting/list:w-[18px] group-data-selecting/list:opacity-100 hover:border-accent-border aria-checked:border-accent aria-checked:bg-accent [&_.icon]:stroke-3",
       role: "checkbox",
       "aria-checked": String(checked),
       "aria-label": "Select note",
@@ -133,13 +151,17 @@ export function listPanel() {
     }, checked ? icon("check", 12) : null);
 
     const handle = draggable
-      ? h("span", { class: "row-handle", title: "Drag to reorder", "aria-hidden": "true" }, icon("grip", 14))
+      ? h("span", {
+          class:
+            "grid w-[18px] cursor-grab touch-none place-items-center self-stretch text-fg-faint opacity-0 transition-opacity duration-[120ms] group-hover/row:opacity-100 group-data-dragging/row:cursor-grabbing group-data-dragging/row:opacity-100",
+          title: "Drag to reorder", "aria-hidden": "true" }, icon("grip", 14))
       : null;
 
     const r = h(
       "div",
       {
-        class: `row${selected ? " selected" : ""}${checked ? " checked" : ""}`,
+        class:
+          "group/row relative mb-0.5 flex min-h-16 items-center gap-3 rounded-lg py-2.5 pr-2.5 pl-3 transition-[background-color] duration-[120ms] hover:bg-surface-hover aria-selected:bg-accent-soft group-focus-visible/list:aria-selected:shadow-[inset_0_0_0_2px_var(--accent-border)] data-dragging:absolute data-dragging:z-5 data-dragging:cursor-grabbing data-dragging:bg-surface data-dragging:shadow-lg",
         role: "option",
         "aria-selected": String(selected),
         "data-id": n.id,
@@ -147,15 +169,21 @@ export function listPanel() {
         title: "Double-click to open in its own window",
       },
       check,
-      h("span", { class: "row-stripe" }),
-      h("div", { class: "row-main" },
-        h("div", { class: "row-top" },
-          n.alert ? h("span", { class: "row-alert", title: "Reminder is due" }) : null,
-          h("span", { class: "row-title truncate" }, displayTitle(n.title, n.text)),
-          n.status === "archived" ? h("span", { class: "badge" }, "Archived") : null,
-          h("span", { class: "row-time" }, ago(n.updated)),
+      // colour dot of the note
+      h("span", { class: "mt-[5px] size-2.5 flex-none self-start rounded-full bg-note-strong" }),
+      h("div", { class: "min-w-0 flex-1" },
+        h("div", { class: "flex items-center gap-2" },
+          // a warm dot when a reminder is due
+          n.alert
+            ? h("span", { class: "size-2 flex-none rounded-full bg-alert shadow-[0_0_0_3px_rgb(242_104_60/0.18)]", title: "Reminder is due" })
+            : null,
+          h("span", { class: "min-w-0 flex-1 truncate text-md font-semibold" }, displayTitle(n.title, n.text)),
+          n.status === "archived"
+            ? h("span", { class: "rounded-full bg-surface-active px-[7px] py-px text-[10px] font-semibold tracking-[0.04em] text-fg-muted uppercase" }, "Archived")
+            : null,
+          h("span", { class: "whitespace-nowrap text-xs text-fg-faint tabular-nums" }, ago(n.updated)),
         ),
-        h("div", { class: "row-preview truncate t-hand" }, preview(n.title ? n.text : n.text.split("\n").slice(1).join("\n")) || " "),
+        h("div", { class: "mt-0.5 truncate font-hand text-lg leading-[1.35] text-fg-muted" }, preview(n.title ? n.text : n.text.split("\n").slice(1).join("\n")) || " "),
         rowMeta(n),
       ),
       handle,
@@ -171,14 +199,18 @@ export function listPanel() {
     const prog = checklistProgress(n.text);
     const apps = n.apps ?? [];
     if (!prog && !n.remindAt && !apps.length) return null;
-    const bar = prog ? h("span", { class: "row-bar" }, h("span")) : null;
+    const bar = prog ? h(
+          "span",
+          { class: "relative h-1 w-[22px] overflow-hidden rounded-xs bg-line-strong" },
+          h("span", { class: "absolute inset-y-0 left-0 w-[calc(var(--progress,0)*100%)] rounded-[inherit] bg-accent" }),
+        ) : null;
     bar?.style.setProperty("--progress", String(prog!.ratio));
     return h(
       "div",
-      { class: "row-meta" },
-      prog ? h("span", { class: `row-chip${prog.done === prog.total ? " done" : ""}` }, bar, `${prog.done}/${prog.total}`) : null,
-      n.remindAt ? h("span", { class: "row-chip" }, icon(n.repeat ? "restore" : "bell", 11), reminderChipLabel(n.remindAt, n.repeat)) : null,
-      apps.length ? h("span", { class: "row-chip", title: apps.map(appName).join(", ") }, appStack(apps, 13, 3), appsLabel(apps)) : null,
+      { class: "mt-1.5 flex flex-wrap gap-1.5" },
+      prog ? h("span", { class: cx(CHIP, prog.done === prog.total ? CHIP_DONE : CHIP_IDLE) }, bar, `${prog.done}/${prog.total}`) : null,
+      n.remindAt ? h("span", { class: cx(CHIP, CHIP_IDLE) }, icon(n.repeat ? "restore" : "bell", 11), reminderChipLabel(n.remindAt, n.repeat)) : null,
+      apps.length ? h("span", { class: cx(CHIP, CHIP_IDLE), title: apps.map(appName).join(", ") }, appStack(apps, 13, 3), appsLabel(apps)) : null,
     );
   }
 
@@ -190,11 +222,11 @@ export function listPanel() {
       handle.setPointerCapture(down.pointerId);
       const rect = rowEl.getBoundingClientRect();
       const listRect = list.getBoundingClientRect();
-      const slot = h("div", { class: "row-slot" });
+      const slot = h("div", { class: "mb-0.5 rounded-lg border-2 border-dashed border-accent-border bg-accent-soft" });
       slot.style.height = `${rect.height}px`;
       rowEl.replaceWith(slot);
       list.append(rowEl);
-      rowEl.classList.add("dragging");
+      rowEl.toggleAttribute("data-dragging", true);
       rowEl.style.width = `${rect.width}px`;
       const offset = down.clientY - rect.top;
 
@@ -205,7 +237,7 @@ export function listPanel() {
 
       const moveFn = (e: PointerEvent) => {
         place(e.clientY);
-        const rows = Array.from(list.querySelectorAll<HTMLElement>(".row:not(.dragging)"));
+        const rows = Array.from(list.querySelectorAll<HTMLElement>("[role=option]:not([data-dragging])"));
         const before = rows.find((x) => {
           const b = x.getBoundingClientRect();
           return e.clientY < b.top + b.height / 2;
@@ -220,11 +252,11 @@ export function listPanel() {
         handle.removeEventListener("pointermove", moveFn);
         handle.removeEventListener("pointerup", upFn);
         handle.removeEventListener("pointercancel", upFn);
-        rowEl.classList.remove("dragging");
+        rowEl.removeAttribute("data-dragging");
         rowEl.style.top = "";
         rowEl.style.width = "";
         slot.replaceWith(rowEl);
-        const ids = Array.from(list.querySelectorAll<HTMLElement>(".row")).map((x) => x.dataset.id!);
+        const ids = Array.from(list.querySelectorAll<HTMLElement>("[role=option]")).map((x) => x.dataset.id!);
         // optimistic reorder
         const pos = new Map(ids.map((id, i) => [id, i]));
         const slots = state.notes.filter((n) => pos.has(n.id)).map((n) => n.order).sort((a, b) => a - b);
@@ -249,7 +281,7 @@ export function listPanel() {
 
     const n = state.checked.size;
     bulk.hidden = n === 0;
-    list.classList.toggle("selecting", n > 0); // keep checkboxes visible while selecting
+    list.toggleAttribute("data-selecting", n > 0); // keep checkboxes visible while selecting
     bulkLabel.textContent = `${n} selected`;
     bulkArchive.textContent = view === "archive" ? "Restore" : "Archive";
     bulkArchive.onclick = () =>
@@ -258,11 +290,16 @@ export function listPanel() {
     const draggable = state.settings.sort === "manual" && !state.query.trim() && notes.length > 1;
     if (!notes.length) {
       const [t, d] = state.query ? ["No matches", "Try a different word."] : EMPTY[view];
-      list.replaceChildren(h("div", { class: "empty-list" }, h("div", { class: "empty-title" }, t), h("div", { class: "t-muted" }, d)));
+      list.replaceChildren(
+        h("div", { class: "px-4 py-8 text-center text-sm" },
+          h("div", { class: "mb-1 text-md font-semibold text-fg" }, t),
+          h("div", { class: "text-fg-muted" }, d),
+        ),
+      );
       return;
     }
     list.replaceChildren(...notes.map((x) => row(x, draggable)));
-    list.querySelector(".row.selected")?.scrollIntoView({ block: "nearest" });
+    list.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }
 
   subscribe((changed) => {

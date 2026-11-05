@@ -25,7 +25,7 @@ pub fn open(app: &AppHandle, view: Option<&str>) -> tauri::Result<()> {
         return Ok(());
     }
     *INITIAL_VIEW.lock() = view;
-    WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("manager.html".into()))
+    WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
         .title("Peekin")
         .decorations(false)
         .shadow(true)

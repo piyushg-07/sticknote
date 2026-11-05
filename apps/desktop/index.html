@@ -1,13 +1,15 @@
 <!doctype html>
+<!-- One page for every window: src/main.ts reads the window's label and
+     loads that window's code. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Peekin</title>
-    <link rel="stylesheet" href="/src/windows/manager/manager.css" />
+    <link rel="stylesheet" href="/src/styles/app.css" />
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/windows/manager/main.ts"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

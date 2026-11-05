@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { h } from "../../lib/dom";
 import { icon, type IconName } from "../../lib/icons";
 import appIcon from "../../app-icon.png";
+import { CARD, CARD_TIGHT, PAGE, PAGE_INNER, PAGE_TITLE_TEXT, SET_DESC, SET_TITLE } from "./settings-view";
 
 const POINTS: [IconName, string, string][] = [
   ["shield", "100% local", "Notes never leave this PC. No account, no cloud, no telemetry, no ads."],
@@ -11,31 +12,35 @@ const POINTS: [IconName, string, string][] = [
 ];
 
 export function aboutView(): HTMLElement {
-  const version = h("span", { class: "t-muted" });
+  const version = h("span", { class: "text-fg-muted" });
   void api.getAppInfo().then((i) => {
     version.textContent = `Version ${i.version}`;
   });
 
   return h(
     "section",
-    { class: "page about-page" },
-    h("div", { class: "page-inner" },
-      h("div", { class: "about-hero" },
-        h("img", { src: appIcon, alt: "", width: 64, height: 64, draggable: "false" }),
+    { class: PAGE },
+    h("div", { class: PAGE_INNER },
+      h("div", { class: "flex items-center gap-5 pt-2 pb-3" },
+        h("img", { class: "rounded-xl shadow-md", src: appIcon, alt: "", width: 64, height: 64, draggable: "false" }),
         h("div", null,
-          h("h1", { class: "page-title" }, "Peekin"),
-          h("div", { class: "t-muted" }, "Sticky notes that live on the edge of your screen."),
+          h("h1", { class: PAGE_TITLE_TEXT }, "Peekin"),
+          h("div", { class: "text-fg-muted" }, "Sticky notes that live on the edge of your screen."),
           version,
         ),
       ),
-      h("div", { class: "about-grid" },
+      h("div", { class: "grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3" },
         ...POINTS.map(([ic, t, d]) =>
-          h("div", { class: "set-card about-point" }, h("div", { class: "about-icon" }, icon(ic, 18)), h("div", { class: "set-title" }, t), h("div", { class: "set-desc" }, d)),
+          h("div", { class: CARD_TIGHT },
+            h("div", { class: "mb-2 grid size-9 place-items-center rounded-md bg-accent-soft text-accent-text" }, icon(ic, 18)),
+            h("div", { class: SET_TITLE }, t),
+            h("div", { class: SET_DESC }, d),
+          ),
         ),
       ),
-      h("div", { class: "set-card" },
-        h("div", { class: "set-title" }, "Credits"),
-        h("div", { class: "set-desc" },
+      h("div", { class: CARD },
+        h("div", { class: SET_TITLE }, "Credits"),
+        h("div", { class: SET_DESC },
           "Fonts: Excalifont (Excalidraw) and Nunito (Vernon Adams), both under the SIL Open Font License 1.1. Built with Tauri."),
       ),
     ),

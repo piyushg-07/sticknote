@@ -11,6 +11,12 @@ const DELAY = 450; // first tooltip
 const WARM_MS = 700; // after one was shown, the next appears instantly
 const GAP = 8;
 
+// Dark pill with an arrow (::before, aimed by --arrow-x); data-side flips the
+// arrow and the entrance offset, data-shown fades it in.
+const TIP =
+  "pointer-events-none fixed z-200 flex max-w-[280px] items-center gap-2 rounded-[9px] bg-toast px-2.5 py-1.5 font-ui text-sm leading-[1.35] font-medium text-toast-fg opacity-0 shadow-[0_6px_20px_rgb(0_0_0/0.28),0_0_0_1px_rgb(255_255_255/0.06)] [transform:translateY(-3px)_scale(0.98)] [transition:opacity_120ms_var(--ease-out),transform_160ms_var(--ease-out)] before:absolute before:left-[calc(var(--arrow-x,50%)-5px)] before:size-2.5 before:rotate-45 before:rounded-[2px] before:bg-inherit before:content-[''] data-[side=above]:[transform:translateY(3px)_scale(0.98)] data-[side=above]:before:-bottom-1 data-[side=below]:before:-top-1 data-shown:opacity-100 data-shown:[transform:none]!";
+const KEY = "inline-flex h-[18px] items-center whitespace-nowrap rounded-xs bg-white/14 px-[5px] font-ui text-2xs font-semibold";
+
 const SHORTCUT = /\s*\(((?:Ctrl|Alt|Shift|Esc|Enter|Del)[^)]*)\)/;
 
 let tip: HTMLDivElement | null = null;
@@ -33,9 +39,9 @@ function build(text: string): HTMLDivElement {
   const keys = m ? m[1].split(/\s*\+\s*(?=.)/).filter(Boolean) : [];
   return h(
     "div",
-    { class: "tooltip", role: "tooltip" },
-    h("span", { class: "tooltip-text" }, label),
-    keys.length ? h("span", { class: "tooltip-keys" }, ...keys.map((k) => h("kbd", null, k))) : null,
+    { class: TIP, role: "tooltip" },
+    h("span", { class: "relative" }, label),
+    keys.length ? h("span", { class: "relative inline-flex gap-[3px]" }, ...keys.map((k) => h("kbd", { class: KEY }, k))) : null,
   ) as HTMLDivElement;
 }
 
@@ -57,7 +63,9 @@ function show(el: HTMLElement) {
   // Arrow points at the control's centre even when the tooltip is clamped.
   tip.style.setProperty("--arrow-x", `${Math.max(10, Math.min(r.left + r.width / 2 - left, w - 10))}px`);
   tip.dataset.side = below ? "below" : "above";
-  requestAnimationFrame(() => tip?.classList.add("shown"));
+  requestAnimationFrame(() => {
+    if (tip) tip.dataset.shown = "";
+  });
 }
 
 function hide(remember = true) {

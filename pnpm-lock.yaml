@@ -39,9 +39,15 @@ importers:
       '@peekin/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@tailwindcss/vite':
+        specifier: ^4.3.4
+        version: 4.3.4(vite@7.3.7(jiti@2.7.0)(lightningcss@1.33.0))
       '@tauri-apps/cli':
         specifier: ^2.12.0
         version: 2.12.4
+      tailwindcss:
+        specifier: ^4.3.4
+        version: 4.3.4
       typescript:
         specifier: ^5.9.0
         version: 5.9.3

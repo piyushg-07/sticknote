@@ -80,11 +80,17 @@ src-tauri/src
   platform/     Win32: tool windows, atomic move/resize, fullscreen watcher
   tray.rs, shortcuts.rs
 src
-  styles/tokens.css   single source of truth: fonts, type scale, colours, spacing, motion
-  lib/                api (typed IPC), events, theme, dom, icons, keys, time
+  styles/app.css      the only stylesheet (Tailwind v4): theme tokens, light/dark,
+                      base layer, rich-text note content, animations
+  lib/                api (typed IPC), events, theme, dom, icons, keys, time,
+                      ui (shared Tailwind class strings for buttons, inputs…)
   editor/             contenteditable editor, toolbar, link popover
-  components/         menu, toast, swatches, toggle/segmented
-  windows/            deck, note, manager (one Vite entry each)
+  components/         menu, toast, swatches, pickers, dropdown, tooltip
+  main.ts             the one entry: picks the window by its Tauri label and
+                      loads that window's code (index.html is the only page)
+  windows/            deck, note, capture, manager (one code-split chunk each)
+
+All styling is Tailwind utilities in the TypeScript that builds the DOM.
 ```
 
 ## Security

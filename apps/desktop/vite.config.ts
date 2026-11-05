@@ -1,13 +1,15 @@
 import { defineConfig } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 import { resolve } from "node:path";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 
-// One HTML entry per window type. Shared code (tokens, api, editor) is split
-// into common chunks so every window only parses what it actually needs.
+// One page (index.html) for every window; src/main.ts loads each window's
+// code as its own chunk, so a window only parses what it needs.
 export default defineConfig({
   clearScreen: false,
+  plugins: [tailwindcss()],
   resolve: { alias: { "@": resolve(root, "src") } },
   server: { port: 1430, strictPort: true, host: "127.0.0.1" },
   envPrefix: ["VITE_", "TAURI_ENV_"],
@@ -17,13 +19,5 @@ export default defineConfig({
     cssMinify: true,
     sourcemap: false,
     modulePreload: { polyfill: false },
-    rollupOptions: {
-      input: {
-        manager: resolve(root, "manager.html"),
-        note: resolve(root, "note.html"),
-        deck: resolve(root, "deck.html"),
-        capture: resolve(root, "capture.html"),
-      },
-    },
   },
 });

@@ -1,0 +1,496 @@
+/* ==========================================================================
+   Peekin desktop: the one stylesheet, Tailwind v4.
+   Every window links this file; all styling is utilities in the TS that
+   builds the DOM. This file holds only Tailwind configuration:
+     * @theme      design tokens (type, radii, motion, note palette)
+     * theme vars  light / dark values the semantic colours point at
+     * base        reset, scrollbars, rich-text note content (generated
+                   HTML that can't carry utility classes)
+     * per-area   animations and custom variants (bottom of the file)
+   ========================================================================== */
+@import "tailwindcss" source(none);
+@source "../../*.html";
+@source "../";
+@source not "../lib/app-logos.ts";
+
+
+/* Dark mode follows the app setting (theme.ts sets <html data-theme>). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@font-face {
+  font-family: "Excalifont";
+  src: url("../fonts/Excalifont-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Nunito";
+  src: url("../fonts/Nunito-Variable.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-display: swap;
+}
+
+/* ---- Static tokens ------------------------------------------------------------ */
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-ui: var(--font-sans);
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-rounded: "Nunito", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --font-typewriter: "Courier Prime", "Courier New", Courier, monospace;
+  --font-hand: "Excalifont", "Segoe Print", "Bradley Hand", cursive;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* type scale (replaces Tailwind's, including its paired line-heights: text
+     inherits the body's 1.45 unless a leading-* utility says otherwise) */
+  --text-*: initial;
+  --text-2xs: 10.5px;
+  --text-xs: 11.5px;
+  --text-sm: 12.5px;
+  --text-md: 13.5px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+  --text-note-title: 17px;
+  --text-note-body: 18px;
+  --text-peek-body: 17px;
+  --leading-tight: 1.2;
+  --leading-normal: 1.45;
+  --tracking-caps: 0.06em;
+
+  /* radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-deck: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* note papers: bg-note-3, text-note-3-strong … */
+  --color-note-0: #cfe0f7;
+  --color-note-0-strong: #4a86c5;
+  --color-note-1: #bde8d2;
+  --color-note-1-strong: #3fa77a;
+  --color-note-2: #ddd1f6;
+  --color-note-2-strong: #8a6cd1;
+  --color-note-3: #fbe59a;
+  --color-note-3-strong: #d4a72c;
+  --color-note-4: #f8cad7;
+  --color-note-4-strong: #c9628a;
+  --color-note-5: #fad4a8;
+  --color-note-5-strong: #e08a3c;
+  --color-note-6: #c2e8ec;
+  --color-note-6-strong: #3a9daa;
+  --color-note-7: #dde0ec;
+  --color-note-7-strong: #7d84a3;
+  --color-note-ink: #2b2a33;
+  --color-note-ink-muted: rgb(43 42 51 / 0.55);
+  --color-note-ink-faint: rgb(43 42 51 / 0.18);
+  --color-alert: #f2683c;
+}
+
+/* ---- Semantic colours: point at runtime vars so light / dark swap live ---------- */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-sidebar: var(--sidebar);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
+  --color-accent-glow: var(--accent-glow);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-focus: var(--focus);
+  --color-scrim: var(--scrim);
+  --color-kbd: var(--kbd-bg);
+  --color-toast: var(--toast-bg);
+  --color-toast-fg: var(--toast-fg);
+  /* the current note's paper (set by data-color on any ancestor) */
+  --color-note: var(--note-bg);
+  --color-note-strong: var(--note-strong);
+
+  --shadow-sm: var(--elev-sm);
+  --shadow-md: var(--elev-md);
+  --shadow-lg: var(--elev-lg);
+  --shadow-note: var(--elev-note);
+
+  /* the current note's typeface (set by data-font on any ancestor) */
+  --font-note: var(--note-font, var(--font-hand));
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --bg: #f5f6f8;
+    --sidebar: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #eceff3;
+    --surface-hover: rgb(17 24 39 / 0.045);
+    --surface-active: rgb(17 24 39 / 0.07);
+    --border: #e8ebef;
+    --border-strong: #d6dbe1;
+    --text: #111418;
+    --text-muted: #5f6b7a;
+    --text-faint: #98a2b0;
+    --accent: #2f8fd6;
+    --accent-hover: #2479bc;
+    --accent-soft: rgb(47 143 214 / 0.1);
+    --accent-border: rgb(47 143 214 / 0.45);
+    --accent-text: #1f78bf;
+    --accent-glow: rgb(47 143 214 / 0.28);
+    --on-accent: #ffffff;
+    --danger: #d33f35;
+    --danger-soft: rgb(211 63 53 / 0.09);
+    --focus: rgb(47 143 214 / 0.45);
+    --scrim: rgb(0 0 0 / 0.25);
+    --kbd-bg: #ffffff;
+    --toast-bg: #111418;
+    --toast-fg: #f4f5f7;
+    --elev-sm: 0 1px 2px rgb(17 24 39 / 0.06);
+    --elev-md: 0 6px 20px rgb(17 24 39 / 0.08), 0 1px 3px rgb(17 24 39 / 0.06);
+    --elev-lg: 0 16px 40px rgb(17 24 39 / 0.16), 0 2px 8px rgb(17 24 39 / 0.08);
+    --elev-note: 0 8px 24px rgb(17 24 39 / 0.18), 0 1px 3px rgb(17 24 39 / 0.1);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #000000;
+    --sidebar: #0e0e10;
+    --surface: #111113;
+    --surface-2: #18181b;
+    --surface-hover: rgb(255 255 255 / 0.06);
+    --surface-active: rgb(255 255 255 / 0.09);
+    --border: rgb(255 255 255 / 0.08);
+    --border-strong: rgb(255 255 255 / 0.14);
+    --text: #f4f4f5;
+    --text-muted: #a1a1aa;
+    --text-faint: #63636b;
+    --accent: #3d9de0;
+    --accent-hover: #5ab0e6;
+    --accent-soft: rgb(79 168 232 / 0.16);
+    --accent-border: rgb(79 168 232 / 0.6);
+    --accent-text: #7cc4f2;
+    --accent-glow: rgb(79 168 232 / 0.3);
+    --on-accent: #ffffff;
+    --danger: #f0665c;
+    --danger-soft: rgb(240 102 92 / 0.14);
+    --focus: rgb(79 168 232 / 0.55);
+    --scrim: rgb(0 0 0 / 0.6);
+    --kbd-bg: #18181b;
+    --toast-bg: #1c1c1f;
+    --toast-fg: #f4f4f5;
+    --elev-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+    --elev-md: 0 6px 20px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
+    --elev-lg: 0 16px 44px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
+    --elev-note: 0 8px 26px rgb(0 0 0 / 0.6), 0 1px 3px rgb(0 0 0 / 0.4);
+  }
+
+  /* data-color="n" on any element → bg-note / text-note-strong in its subtree */
+  [data-color="0"] { --note-bg: var(--color-note-0); --note-strong: var(--color-note-0-strong); }
+  [data-color="1"] { --note-bg: var(--color-note-1); --note-strong: var(--color-note-1-strong); }
+  [data-color="2"] { --note-bg: var(--color-note-2); --note-strong: var(--color-note-2-strong); }
+  [data-color="3"] { --note-bg: var(--color-note-3); --note-strong: var(--color-note-3-strong); }
+  [data-color="4"] { --note-bg: var(--color-note-4); --note-strong: var(--color-note-4-strong); }
+  [data-color="5"] { --note-bg: var(--color-note-5); --note-strong: var(--color-note-5-strong); }
+  [data-color="6"] { --note-bg: var(--color-note-6); --note-strong: var(--color-note-6-strong); }
+  [data-color="7"] { --note-bg: var(--color-note-7); --note-strong: var(--color-note-7-strong); }
+
+  /* data-font on any element → font-note in its subtree */
+  [data-font="hand"] { --note-font: var(--font-hand); --note-font-scale: 1; }
+  [data-font="normal"] { --note-font: var(--font-ui); --note-font-scale: 0.86; }
+  [data-font="rounded"] { --note-font: var(--font-rounded); --note-font-scale: 0.88; }
+  [data-font="typewriter"] { --note-font: var(--font-typewriter); --note-font-scale: 0.86; }
+
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    @apply cursor-default overflow-hidden font-ui text-md leading-normal text-fg antialiased select-none;
+    text-rendering: optimizeLegibility;
+  }
+  button {
+    @apply cursor-default;
+  }
+  input,
+  textarea,
+  [contenteditable="true"] {
+    @apply select-text;
+  }
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+  /* text surfaces are edited in place: just a caret, no ring */
+  input:focus-visible,
+  textarea:focus-visible,
+  [contenteditable="true"]:focus-visible,
+  [data-no-ring]:focus-visible {
+    outline: none;
+  }
+
+  /* scrollbars (pseudo-elements: can't be utilities on every scroller) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--border-strong) content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-faint);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ---- Rich-text note content --------------------------------------------------------
+   The editor produces plain HTML (div, ul.checklist, li[data-checked], a, b) that
+   can't carry utility classes, so `rich` styles its descendants. */
+@utility rich {
+  font-family: var(--note-font, var(--font-hand));
+  color: var(--color-note-ink);
+  overflow-wrap: anywhere;
+
+  & > div,
+  & > p {
+    margin: 0;
+    min-height: 1em;
+  }
+  & ul,
+  & ol {
+    margin: 0.1em 0;
+    padding-left: 1.4em;
+  }
+  & ul {
+    list-style: disc;
+  }
+  & ol {
+    list-style: decimal;
+  }
+  & li {
+    margin: 0.05em 0;
+  }
+  & ul.checklist {
+    list-style: none;
+    padding-left: 0.2em;
+  }
+  & ul.checklist > li {
+    position: relative;
+    padding-left: 1.55em;
+  }
+  & ul.checklist > li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.32em;
+    width: 0.85em;
+    height: 0.85em;
+    border: 1.6px solid var(--color-note-ink-muted);
+    border-radius: 4px;
+    background: rgb(255 255 255 / 0.35);
+    cursor: pointer;
+  }
+  & ul.checklist > li[data-checked="true"] {
+    color: var(--color-note-ink-muted);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+  & ul.checklist > li[data-checked="true"]::before {
+    background: var(--color-note-ink)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / 85% no-repeat;
+    border-color: var(--color-note-ink);
+  }
+  & a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--color-note-ink-muted);
+    text-underline-offset: 2px;
+  }
+  &[contenteditable="true"] a {
+    cursor: text;
+  }
+  &[contenteditable="true"].ctrl a {
+    cursor: pointer;
+  }
+  & b,
+  & strong {
+    font-weight: 700;
+  }
+  &:empty::before {
+    content: attr(data-placeholder);
+    color: var(--color-note-ink-muted);
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ==========================================================================
+   Per-area animations and custom variants
+   ========================================================================== */
+
+/* ---- components ---------------------------------------------------------------- */
+@theme {
+  /* popovers: menu, dropdown, app picker, reminder panel, link editor */
+  --animate-pop-in: pop-in 200ms var(--ease-out);
+  /* toast entrance; the progress bar's duration is set inline per toast */
+  --animate-toast-in: toast-in 320ms var(--ease-out);
+  --animate-toast-progress: toast-progress linear forwards;
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+  @keyframes toast-progress {
+    to {
+      transform: scaleX(0);
+    }
+  }
+}
+
+/* ---- deck ---------------------------------------------------------------------- */
+/* State on the deck root (#deck), read by its descendants. */
+@custom-variant deck-r (&:where([data-edge="right"] *));
+@custom-variant deck-l (&:where([data-edge="left"] *));
+@custom-variant deck-pill (&:where([data-compact] *)); /* resting: pills */
+@custom-variant deck-instant (&:where([data-instant] *)); /* layout restores: no animation */
+
+@theme {
+  --animate-deck-ripple: deck-ripple 420ms var(--ease-out) forwards;
+  --animate-deck-alert-pulse: deck-alert-pulse 1.4s ease-out 3;
+  --animate-deck-pill-pulse: deck-pill-pulse 1.4s ease-in-out 3;
+  --animate-deck-toast-in: deck-toast-in 320ms var(--ease-out);
+
+  /* "+" click ripple */
+  @keyframes deck-ripple {
+    to {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+  /* reminder dot on a tab */
+  @keyframes deck-alert-pulse {
+    0% {
+      box-shadow: 0 0 0 2px var(--note-bg), 0 0 0 2px rgba(242, 104, 60, 0.6);
+    }
+    100% {
+      box-shadow: 0 0 0 2px var(--note-bg), 0 0 0 10px rgba(242, 104, 60, 0);
+    }
+  }
+  /* reminder pill */
+  @keyframes deck-pill-pulse {
+    50% {
+      scale: 1.25;
+    }
+  }
+  @keyframes deck-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+}
+
+/* ---- note ---------------------------------------------------------------------- */
+/* Note window enter / leave (windows/note/main.ts sets data-anim on the shell).
+   Keep the note-out duration in sync with LEAVE_MS in main.ts. */
+@theme {
+  --animate-note-in: note-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-note-out: note-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+
+  @keyframes note-in {
+    from {
+      opacity: 0;
+      transform: scale(0.94) translateY(10px);
+    }
+  }
+  @keyframes note-out {
+    to {
+      opacity: 0;
+      transform: scale(0.95) translateY(8px);
+    }
+  }
+}
+
+/* ---- manager ------------------------------------------------------------------- */
+/* The All notes window's "narrow window" breakpoint (old: max-width 1000px). */
+@custom-variant narrow (@media (max-width: 1000px));
+
+@theme {
+  /* bulk-selection bar dropping in */
+  --animate-bulk-in: bulk-in 200ms var(--ease-out);
+  @keyframes bulk-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+  }
+}
+
+/* ---- capture ------------------------------------------------------------------- */
+/* Quick-capture card (windows/capture/main.ts sets data-anim on the card and
+   --from-edge = 1 | -1 for the deck's side). Enter slides out from the deck,
+   leave fades back toward it, saved tucks into the deck. Durations match
+   LEAVE_MS / SAVED_MS in main.ts. */
+@theme {
+  --animate-cap-in: cap-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-cap-out: cap-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-cap-saved: cap-saved 280ms cubic-bezier(0.4, 0, 1, 1) forwards;
+
+  @keyframes cap-in {
+    from {
+      opacity: 0;
+      transform: translateX(calc(var(--from-edge, 1) * 18px)) scale(0.97);
+    }
+  }
+  @keyframes cap-out {
+    to {
+      opacity: 0;
+      transform: translateX(calc(var(--from-edge, 1) * 10px)) scale(0.98);
+    }
+  }
+  @keyframes cap-saved {
+    to {
+      opacity: 0;
+      transform: translateX(calc(var(--from-edge, 1) * 60px)) scale(0.6);
+    }
+  }
+}

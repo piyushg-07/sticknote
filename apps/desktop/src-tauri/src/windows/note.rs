@@ -75,7 +75,7 @@ fn centered_rect(app: &AppHandle) -> (i32, i32, u32, u32) {
 }
 
 fn build(app: &AppHandle, label: &str) -> tauri::Result<tauri::WebviewWindow> {
-    let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App("note.html".into()))
+    let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title("Peekin note")
         .transparent(true)
         .decorations(false)
